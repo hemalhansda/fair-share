@@ -9,12 +9,12 @@ const FriendsView = ({
   balances, 
   formatMoney, 
   handleSettleUp, 
-  setIsFriendModalOpen 
+  setShowAddFriend 
 }) => (
   <div className="space-y-4">
     <div className="flex justify-between items-center">
       <h2 className="text-xl font-bold text-gray-800">Friends</h2>
-      <Button onClick={() => setIsFriendModalOpen(true)} variant="secondary" className="!px-3 !py-1 text-sm">
+      <Button onClick={setShowAddFriend} variant="secondary" className="!px-3 !py-1 text-sm">
         <UserPlus size={16} /> Add Friend
       </Button>
     </div>
