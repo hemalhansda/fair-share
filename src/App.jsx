@@ -150,12 +150,26 @@ function AppRouter() {
   useEffect(() => {
     const initGoogleAuth = () => {
       if (window.google && window.google.accounts) {
+        // Disable FedCM first to avoid browser compatibility issues
+        if (window.google.accounts.id.disableFedCm) {
+          try {
+            window.google.accounts.id.disableFedCm();
+            console.log('FedCM disabled successfully');
+          } catch (error) {
+            console.log('FedCM disable failed (this is normal):', error);
+          }
+        }
+        
         window.google.accounts.id.initialize({
           client_id: '372713663318-11ob025d5sp4j0l6ec8kebpmhm9fldt9.apps.googleusercontent.com',
           callback: handleGoogleCallback,
           auto_select: false,
-          cancel_on_tap_outside: false
+          cancel_on_tap_outside: false,
+          use_fedcm_for_prompt: false,
+          ux_mode: 'popup',
+          context: 'signin'
         });
+        
         console.log('Google OAuth initialized successfully');
       }
     };
@@ -167,6 +181,7 @@ function AppRouter() {
       script.async = true;
       script.defer = true;
       script.onload = initGoogleAuth;
+      script.onerror = () => console.error('Failed to load Google OAuth script');
       document.head.appendChild(script);
     } else {
       initGoogleAuth();
@@ -406,57 +421,95 @@ function AppRouter() {
   const handleGoogleLogin = () => {
     console.log('handleGoogleLogin called');
     
-    if (window.google && window.google.accounts) {
-      try {
-        // Request credentials directly
-        window.google.accounts.id.prompt((notification) => {
-          console.log('Prompt notification:', notification);
-          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-            // If prompt fails, try alternative method
-            console.log('Prompt failed, showing manual login');
-            // Create a temporary container for Google button
-            const tempContainer = document.createElement('div');
-            tempContainer.style.position = 'fixed';
-            tempContainer.style.top = '50%';
-            tempContainer.style.left = '50%';
-            tempContainer.style.transform = 'translate(-50%, -50%)';
-            tempContainer.style.zIndex = '10000';
-            tempContainer.style.backgroundColor = 'white';
-            tempContainer.style.padding = '20px';
-            tempContainer.style.borderRadius = '10px';
-            tempContainer.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
-            
-            document.body.appendChild(tempContainer);
-            
-            window.google.accounts.id.renderButton(tempContainer, {
-              theme: 'outline',
-              size: 'large',
-              type: 'standard',
-              shape: 'rectangular',
-              text: 'signin_with',
-              logo_alignment: 'left'
-            });
-            
-            // Add close button
-            const closeBtn = document.createElement('button');
-            closeBtn.textContent = '✕';
-            closeBtn.style.position = 'absolute';
-            closeBtn.style.top = '5px';
-            closeBtn.style.right = '10px';
-            closeBtn.style.border = 'none';
-            closeBtn.style.background = 'none';
-            closeBtn.style.fontSize = '16px';
-            closeBtn.style.cursor = 'pointer';
-            closeBtn.onclick = () => document.body.removeChild(tempContainer);
-            tempContainer.appendChild(closeBtn);
-          }
-        });
-      } catch (error) {
-        console.error('Google login error:', error);
-        alert('Error during Google login. Please try again.');
+    if (!window.google || !window.google.accounts) {
+      alert('Google authentication is still loading. Please wait a moment and try again.');
+      return;
+    }
+    
+    setIsGoogleLoading(true);
+    
+    try {
+      console.log('Attempting Google prompt');
+      
+      // Clear any previous state that might interfere
+      if (window.google.accounts.id.cancel) {
+        window.google.accounts.id.cancel();
       }
-    } else {
-      alert('Google authentication is loading. Please try again in a moment.');
+      
+      // Use renderButton method instead of prompt for better reliability
+      const tempDiv = document.createElement('div');
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.top = '-1000px';
+      tempDiv.style.left = '-1000px';
+      document.body.appendChild(tempDiv);
+      
+      window.google.accounts.id.renderButton(tempDiv, {
+        theme: 'outline',
+        size: 'large',
+        type: 'standard',
+        text: 'signin_with',
+        shape: 'rectangular',
+        width: 300
+      });
+      
+      // Programmatically click the button
+      setTimeout(() => {
+        const button = tempDiv.querySelector('div[role="button"]');
+        if (button) {
+          button.click();
+        } else {
+          console.error('Google sign-in button not found');
+          setIsGoogleLoading(false);
+          // Fallback to prompt method
+          fallbackToPrompt();
+        }
+        // Clean up
+        document.body.removeChild(tempDiv);
+      }, 100);
+      
+    } catch (error) {
+      console.error('Google login error:', error);
+      setIsGoogleLoading(false);
+      fallbackToPrompt();
+    }
+  };
+
+  const fallbackToPrompt = () => {
+    console.log('Falling back to prompt method');
+    
+    try {
+      window.google.accounts.id.prompt((notification) => {
+        console.log('Prompt notification:', notification);
+        setIsGoogleLoading(false);
+        
+        if (notification.isNotDisplayed()) {
+          const reason = notification.getNotDisplayedReason();
+          console.log('Prompt not displayed:', reason);
+          
+          switch (reason) {
+            case 'browser_not_supported':
+              alert('Your browser doesn\'t support Google Sign-In. Please try a different browser.');
+              break;
+            case 'unregistered_origin':
+              console.error('Domain not authorized for Google OAuth');
+              alert('Authentication setup issue. Please ensure localhost:5173 is authorized.');
+              break;
+            case 'suppressed_by_user':
+              console.log('User previously dismissed Google sign-in');
+              break;
+            default:
+              console.log('Google sign-in not available:', reason);
+              break;
+          }
+        } else if (notification.isSkippedMoment()) {
+          console.log('Prompt skipped:', notification.getSkippedReason());
+        } else if (notification.isDismissedMoment()) {
+          console.log('Prompt dismissed:', notification.getDismissedReason());
+        }
+      });
+    } catch (error) {
+      console.error('Fallback prompt failed:', error);
+      setIsGoogleLoading(false);
     }
   };
 
