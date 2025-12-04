@@ -1,12 +1,13 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { PieChart, LogOut, Home, Users, UserPlus, Activity } from 'lucide-react';
+import { PieChart, LogOut, Home, Users, UserPlus, Activity, Settings } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 
 const Sidebar = ({ 
   currentUser, 
   handleLogout,
-  setSelectedGroup
+  setSelectedGroup,
+  setIsSettingsModalOpen
 }) => {
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/dashboard' },
@@ -43,15 +44,26 @@ const Sidebar = ({
       </nav>
 
       <div className="p-4 border-t border-gray-100">
-        <div className="flex items-center gap-3 px-2">
+        <div className="flex items-center gap-3 px-2 mb-3">
           <Avatar user={currentUser} />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">{currentUser?.name || 'Guest'}</p>
             <p className="text-xs text-gray-500 truncate">{currentUser?.email || 'Not signed in'}</p>
           </div>
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsSettingsModalOpen && setIsSettingsModalOpen(true)}
+            className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+            title="Settings"
+          >
+            <Settings size={16} />
+            Settings
+          </button>
           <button
             onClick={handleLogout}
-            className="p-1 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-2 rounded-lg hover:bg-gray-50 text-gray-400 hover:text-gray-600 transition-colors"
             title="Sign out"
           >
             <LogOut size={18} />

@@ -68,6 +68,81 @@ export async function getAllUsers() {
   }
 }
 
+// Get only the current user's friends (people they've added or been added by)
+export async function getUserFriends(userId) {
+  try {
+    // First get the user's UUID from their google_id
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('google_id', userId)
+      .single()
+
+    if (!user) {
+      return { success: true, data: [] }
+    }
+
+    // Step 1: Get all groups the user is a member of
+    const { data: userGroups, error: groupsError } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id)
+
+    if (groupsError) throw groupsError
+
+    const userGroupIds = userGroups?.map(g => g.group_id) || []
+
+    // Step 2: Get all users in those groups (if user has any groups)
+    let allFriends = []
+    const friendsSet = new Set()
+
+    // Always include the current user first
+    const { data: currentUserData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    
+    if (currentUserData) {
+      allFriends.push(currentUserData)
+      friendsSet.add(currentUserData.id)
+    }
+
+    if (userGroupIds.length > 0) {
+      // Get all members from user's groups
+      const { data: groupMembers, error: membersError } = await supabase
+        .from('group_members')
+        .select(`
+          user_id,
+          users (
+            id,
+            name,
+            email,
+            avatar,
+            picture,
+            google_id
+          )
+        `)
+        .in('group_id', userGroupIds)
+
+      if (membersError) throw membersError
+
+      // Add unique group members
+      groupMembers?.forEach(member => {
+        if (member.users && !friendsSet.has(member.users.id)) {
+          allFriends.push(member.users)
+          friendsSet.add(member.users.id)
+        }
+      })
+    }
+
+    return { success: true, data: allFriends }
+  } catch (error) {
+    console.error('Error fetching user friends:', error)
+    return { success: false, error: error.message, data: [] }
+  }
+}
+
 export async function addFriend(friendData, currentUserId) {
   try {
     // First, try to find if user already exists
@@ -77,27 +152,107 @@ export async function addFriend(friendData, currentUserId) {
       .eq('email', friendData.email)
       .maybeSingle()
 
+    let friendUser;
     if (existingUser) {
-      // User already exists, just return it
-      return { success: true, data: existingUser }
+      // User already exists
+      friendUser = existingUser
+    } else {
+      // Create new user (Let Supabase generate a UUID automatically)
+      const { data, error } = await supabase
+        .from('users')
+        .insert([{
+          name: friendData.name,
+          email: friendData.email,
+          avatar: friendData.avatar,
+          google_id: null // This indicates it's a friend, not a Google OAuth user
+        }])
+        .select()
+        .single()
+
+      if (error) throw error
+      friendUser = data
     }
 
-    // Let Supabase generate a UUID automatically (don't specify id)
+    // Now create a friend relationship (if it doesn't exist)
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('google_id', currentUserId)
+      .single()
+
+    if (currentUser) {
+      // Create bidirectional friendship
+      const { error: friendshipError } = await supabase
+        .from('friendships')
+        .upsert([
+          { user_id: currentUser.id, friend_id: friendUser.id },
+          { user_id: friendUser.id, friend_id: currentUser.id }
+        ], { onConflict: 'user_id,friend_id' })
+
+      if (friendshipError && !friendshipError.message.includes('duplicate')) {
+        console.error('Friendship creation error:', friendshipError)
+      }
+    }
+
+    return { success: true, data: friendUser }
+  } catch (error) {
+    console.error('Error adding friend:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function updateUser(userId, userData) {
+  try {
     const { data, error } = await supabase
       .from('users')
-      .insert([{
-        name: friendData.name,
-        email: friendData.email,
-        avatar: friendData.avatar,
-        google_id: null // This indicates it's a friend, not a Google OAuth user
-      }])
+      .update({
+        name: userData.name,
+        email: userData.email,
+        avatar: userData.avatar
+      })
+      .eq('id', userId)
       .select()
       .single()
 
     if (error) throw error
     return { success: true, data }
   } catch (error) {
-    console.error('Error adding friend:', error)
+    console.error('Error updating user:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteUser(userId) {
+  try {
+    // Check if user has any expenses or group memberships
+    const { data: expenses } = await supabase
+      .from('expenses')
+      .select('id')
+      .or(`paid_by.eq.${userId}`)
+
+    const { data: splits } = await supabase
+      .from('expense_splits')
+      .select('id')
+      .eq('user_id', userId)
+
+    const { data: groupMemberships } = await supabase
+      .from('group_members')
+      .select('id')
+      .eq('user_id', userId)
+
+    if ((expenses && expenses.length > 0) || (splits && splits.length > 0) || (groupMemberships && groupMemberships.length > 0)) {
+      return { success: false, error: 'Cannot delete user with existing expenses or group memberships' }
+    }
+
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting user:', error)
     return { success: false, error: error.message }
   }
 }
@@ -191,37 +346,118 @@ export async function getUserGroups(userId) {
       return { success: true, data: [] }
     }
 
+    // Only get groups where the user is actually a member
     const { data, error } = await supabase
       .from('groups')
       .select(`
-        *,
-        group_members (
-          user_id,
-          users (
-            id,
-            name,
-            email,
-            avatar,
-            picture
-          )
+        id,
+        name,
+        type,
+        created_by,
+        group_members!inner (
+          user_id
         )
       `)
       .eq('group_members.user_id', user.id)
 
     if (error) throw error
 
-    // Transform the data to match your app's format
-    const transformedGroups = data?.map(group => ({
-      id: group.id,
-      name: group.name,
-      type: group.type,
-      members: group.group_members?.map(member => member.user_id) || []
-    })) || []
+    // For each group, get all members (but only for groups the user belongs to)
+    const groupsWithMembers = await Promise.all(
+      (data || []).map(async (group) => {
+        const { data: members } = await supabase
+          .from('group_members')
+          .select('user_id')
+          .eq('group_id', group.id)
 
-    return { success: true, data: transformedGroups }
+        return {
+          id: group.id,
+          name: group.name,
+          type: group.type,
+          members: members?.map(m => m.user_id) || []
+        }
+      })
+    )
+
+    return { success: true, data: groupsWithMembers }
   } catch (error) {
     console.error('Error fetching groups:', error)
     return { success: false, error: error.message, data: [] }
+  }
+}
+
+export async function updateGroup(groupId, groupData) {
+  try {
+    // Update group basic info
+    const { data: group, error: groupError } = await supabase
+      .from('groups')
+      .update({
+        name: groupData.name,
+        type: groupData.type
+      })
+      .eq('id', groupId)
+      .select()
+      .single()
+
+    if (groupError) throw groupError
+
+    // Update group members if provided
+    if (groupData.members) {
+      // Remove existing members
+      await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId)
+
+      // Add new members
+      const memberInserts = groupData.members.map(memberId => ({
+        group_id: groupId,
+        user_id: memberId
+      }))
+
+      const { error: membersError } = await supabase
+        .from('group_members')
+        .insert(memberInserts)
+
+      if (membersError) throw membersError
+    }
+
+    return { success: true, data: group }
+  } catch (error) {
+    console.error('Error updating group:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function deleteGroup(groupId) {
+  try {
+    // Check if group has any expenses
+    const { data: expenses } = await supabase
+      .from('expenses')
+      .select('id')
+      .eq('group_id', groupId)
+
+    if (expenses && expenses.length > 0) {
+      return { success: false, error: 'Cannot delete group with existing expenses' }
+    }
+
+    // Delete group members first (foreign key constraint)
+    await supabase
+      .from('group_members')
+      .delete()
+      .eq('group_id', groupId)
+
+    // Delete the group
+    const { error } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting group:', error)
+    return { success: false, error: error.message }
   }
 }
 
@@ -251,6 +487,7 @@ export async function createExpense(expenseData) {
       .insert([{
         description: expenseData.description,
         amount: expenseData.amount,
+        currency: expenseData.currency || 'USD',
         paid_by: payerUuid,
         group_id: expenseData.groupId,
         category: expenseData.category
@@ -311,6 +548,14 @@ export async function getUserExpenses(userId) {
     if (!user) {
       return { success: true, data: [] }
     }
+
+    // Get all groups the user is a member of
+    const { data: userGroups } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id)
+
+    const userGroupIds = userGroups?.map(g => g.group_id) || []
 
     // Get expenses where user is the payer
     const { data: paidExpenses, error: paidError } = await supabase
@@ -380,26 +625,33 @@ export async function getUserExpenses(userId) {
 
     if (splitError) throw splitError
 
-    // Combine and deduplicate the results
+    // Combine and deduplicate expenses
     const allExpenses = [...(paidExpenses || []), ...(splitExpenses || [])]
     const uniqueExpenses = allExpenses.filter((expense, index, self) => 
       index === self.findIndex(e => e.id === expense.id)
     )
 
-    // Sort by date
-    const data = uniqueExpenses.sort((a, b) => new Date(b.date) - new Date(a.date))
+    // Filter to only include expenses from user's groups or personal expenses
+    const filteredExpenses = uniqueExpenses.filter(expense => {
+      // Include if no group (personal expense) or if user is in the group
+      return !expense.group_id || userGroupIds.includes(expense.group_id)
+    })
 
     // Transform the data to match your app's format
-    const transformedExpenses = data?.map(expense => ({
+    const transformedExpenses = filteredExpenses.map(expense => ({
       id: expense.id,
       description: expense.description,
       amount: parseFloat(expense.amount),
+      currency: expense.currency || 'USD',
       date: expense.date,
       paidBy: expense.paid_by,
       groupId: expense.group_id,
       splitBetween: expense.expense_splits?.map(split => split.user_id) || [],
       category: expense.category
-    })) || []
+    }))
+
+    // Sort by date
+    transformedExpenses.sort((a, b) => new Date(b.date) - new Date(a.date))
 
     return { success: true, data: transformedExpenses }
   } catch (error) {
@@ -442,6 +694,7 @@ export async function getGroupExpenses(groupId) {
       id: expense.id,
       description: expense.description,
       amount: parseFloat(expense.amount),
+      currency: expense.currency || 'USD',
       date: expense.date,
       paidBy: expense.paid_by,
       groupId: expense.group_id,
@@ -507,12 +760,100 @@ export const DEMO_GROUPS = [
 ]
 
 export const DEMO_EXPENSES = [
-  { id: 'e1', description: 'Hotel Booking', amount: 300, created_at: new Date(Date.now() - 86400000).toISOString(), paid_by: 'u1', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Travel' },
-  { id: 'e2', description: 'Dinner at Restaurant', amount: 200, created_at: new Date(Date.now() - 172800000).toISOString(), paid_by: 'u2', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Food' },
-  { id: 'e3', description: 'Groceries', amount: 45, created_at: new Date(Date.now() - 259200000).toISOString(), paid_by: 'u1', group_id: 'g2', split_between: ['u1', 'u4'], category: 'Food' },
-  { id: 'e2', description: 'Dinner', amount: 90, created_at: new Date().toISOString(), paid_by: 'u2', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Food' },
-  { id: 'e3', description: 'Internet Bill', amount: 60, created_at: new Date().toISOString(), paid_by: 'u4', group_id: 'g2', split_between: ['u1', 'u4'], category: 'Utilities' },
+  { id: 'e1', description: 'Hotel Booking', amount: 300, currency: 'USD', created_at: new Date(Date.now() - 86400000).toISOString(), paid_by: 'u1', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Travel' },
+  { id: 'e2', description: 'Dinner at Restaurant', amount: 200, currency: 'USD', created_at: new Date(Date.now() - 172800000).toISOString(), paid_by: 'u2', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Food' },
+  { id: 'e3', description: 'Groceries', amount: 45, currency: 'USD', created_at: new Date(Date.now() - 259200000).toISOString(), paid_by: 'u1', group_id: 'g2', split_between: ['u1', 'u4'], category: 'Food' },
+  { id: 'e4', description: 'Dinner', amount: 90, currency: 'USD', created_at: new Date().toISOString(), paid_by: 'u2', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Food' },
+  { id: 'e5', description: 'Internet Bill', amount: 60, currency: 'USD', created_at: new Date().toISOString(), paid_by: 'u4', group_id: 'g2', split_between: ['u1', 'u4'], category: 'Utilities' },
 ]
+
+// ===== USER PREFERENCES =====
+
+export async function updateUserPreferences(userId, preferences) {
+  try {
+    // For now, use localStorage until database schema is updated
+    // This provides immediate functionality while waiting for DB migration
+    if (typeof window !== 'undefined') {
+      const userPrefsKey = `fairshare_preferences_${userId}`
+      localStorage.setItem(userPrefsKey, JSON.stringify(preferences))
+      return { success: true, data: preferences }
+    }
+
+    // TODO: Uncomment this when preferred_currency column is added to users table
+    /*
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('google_id', userId)
+      .single()
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        preferred_currency: preferences.currency
+      })
+      .eq('id', user.id)
+      .select()
+      .single()
+
+    if (error) throw error
+    return { success: true, data }
+    */
+
+    return { success: true, data: preferences }
+  } catch (error) {
+    console.error('Error updating user preferences:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getUserPreferences(userId) {
+  try {
+    // For now, use localStorage until database schema is updated
+    if (typeof window !== 'undefined') {
+      const userPrefsKey = `fairshare_preferences_${userId}`
+      const savedPrefs = localStorage.getItem(userPrefsKey)
+      
+      if (savedPrefs) {
+        const preferences = JSON.parse(savedPrefs)
+        return { success: true, preferences }
+      }
+    }
+
+    // TODO: Uncomment this when preferred_currency column is added to users table
+    /*
+    const { data: user } = await supabase
+      .from('users')
+      .select('preferred_currency')
+      .eq('google_id', userId)
+      .single()
+
+    return { 
+      success: true, 
+      preferences: {
+        currency: user?.preferred_currency || 'USD'
+      }
+    }
+    */
+
+    // Default preferences
+    return { 
+      success: true, 
+      preferences: { currency: 'USD' }
+    }
+  } catch (error) {
+    console.error('Error fetching user preferences:', error)
+    return { 
+      success: false, 
+      error: error.message,
+      preferences: { currency: 'USD' }
+    }
+  }
+}
 
 // Check if Supabase is properly configured
 export function isSupabaseConfigured() {

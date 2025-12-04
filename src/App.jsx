@@ -39,22 +39,35 @@ import ActivityView from './components/views/ActivityView';
 import AddExpenseModal from './components/modals/AddExpenseModal';
 import AddGroupModal from './components/modals/AddGroupModal';
 import AddFriendModal from './components/modals/AddFriendModal';
+import EditUserModal from './components/modals/EditUserModal';
+import EditGroupModal from './components/modals/EditGroupModal';
+import SettingsModal from './components/modals/SettingsModal';
 
 // Database services
 import { 
   createOrUpdateUser,
   getAllUsers,
+  getUserFriends,
   addFriend,
+  updateUser,
+  deleteUser,
   createGroup,
+  updateGroup,
+  deleteGroup,
   getUserGroups,
   createExpense,
   getUserExpenses,
   calculateBalances,
+  updateUserPreferences,
+  getUserPreferences,
   isSupabaseConfigured,
   DEMO_USERS,
   DEMO_GROUPS,
   DEMO_EXPENSES
 } from './services/database.js';
+
+// Currency services
+import { convertCurrency, formatCurrency, CURRENCIES } from './services/currency.js';
 
 // --- Data Structures ---
 // User: { id, name, email, avatar }
@@ -85,10 +98,11 @@ function AppRouter() {
   const [isDataLoading, setIsDataLoading] = useState(false);
   
   // State
-  const [users, setUsers] = useState(isDemoMode ? DEMO_USERS : []);
-  const [groups, setGroups] = useState(isDemoMode ? DEMO_GROUPS : []);
-  const [expenses, setExpenses] = useState(isDemoMode ? DEMO_EXPENSES : []);
-  const [currentUser, setCurrentUser] = useState(isDemoMode ? DEMO_USERS[0] : null);
+  const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [userPreferences, setUserPreferences] = useState({ currency: 'USD' });
   
   // Navigation State
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -115,6 +129,11 @@ function AppRouter() {
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [isEditGroupModalOpen, setIsEditGroupModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [selectedUserToEdit, setSelectedUserToEdit] = useState(null);
+  const [selectedGroupToEdit, setSelectedGroupToEdit] = useState(null);
 
   // Check for existing authentication on app load
   useEffect(() => {
@@ -199,31 +218,130 @@ function AppRouter() {
 
   // Load user data after authentication
   useEffect(() => {
-    if (isAuthenticated && currentUser && !isDemoMode) {
-      loadUserData();
+    if (isAuthenticated && currentUser) {
+      if (isDemoMode) {
+        initializeDemoData();
+      } else {
+        loadUserData();
+      }
     }
   }, [isAuthenticated, currentUser?.id, isDemoMode]);
 
   // --- Database Loading Functions ---
+
+  const initializeDemoData = () => {
+    // In demo mode, create user-specific data based on current user
+    if (!currentUser) return;
+    
+    // Each user gets their own isolated demo environment
+    const userDemoData = createUserDemoData(currentUser);
+    setUsers(userDemoData.users);
+    setGroups(userDemoData.groups);
+    setExpenses(userDemoData.expenses);
+  };
+
+  const createUserDemoData = (user) => {
+    // Create friends based on user's ID to ensure consistency but isolation
+    const friends = [
+      user, // Current user
+      { id: `${user.id}_friend_1`, name: 'Alice Johnson', email: 'alice@example.com', avatar: 'AJ' },
+      { id: `${user.id}_friend_2`, name: 'Bob Smith', email: 'bob@example.com', avatar: 'BS' },
+      { id: `${user.id}_friend_3`, name: 'Charlie Davis', email: 'charlie@example.com', avatar: 'CD' },
+    ];
+
+    const demoGroups = [
+      { 
+        id: `${user.id}_group_1`, 
+        name: 'Weekend Trip', 
+        members: [user.id, `${user.id}_friend_1`, `${user.id}_friend_2`], 
+        type: 'Trip' 
+      },
+      { 
+        id: `${user.id}_group_2`, 
+        name: 'Shared Apartment', 
+        members: [user.id, `${user.id}_friend_3`], 
+        type: 'Home' 
+      },
+    ];
+
+    const demoExpenses = [
+      { 
+        id: `${user.id}_expense_1`, 
+        description: 'Hotel Booking', 
+        amount: 300, 
+        currency: 'USD',
+        created_at: new Date(Date.now() - 86400000).toISOString(), 
+        paid_by: user.id, 
+        group_id: `${user.id}_group_1`, 
+        split_between: [user.id, `${user.id}_friend_1`, `${user.id}_friend_2`], 
+        category: 'Travel' 
+      },
+      { 
+        id: `${user.id}_expense_2`, 
+        description: 'Thai Dinner', 
+        amount: 1200, 
+        currency: 'THB',
+        created_at: new Date(Date.now() - 172800000).toISOString(), 
+        paid_by: `${user.id}_friend_1`, 
+        group_id: `${user.id}_group_1`, 
+        split_between: [user.id, `${user.id}_friend_1`, `${user.id}_friend_2`], 
+        category: 'Food' 
+      },
+      { 
+        id: `${user.id}_expense_3`, 
+        description: 'Groceries', 
+        amount: 65, 
+        currency: 'EUR',
+        created_at: new Date(Date.now() - 259200000).toISOString(), 
+        paid_by: user.id, 
+        group_id: `${user.id}_group_2`, 
+        split_between: [user.id, `${user.id}_friend_3`], 
+        category: 'Food' 
+      },
+      { 
+        id: `${user.id}_expense_4`, 
+        description: 'Utilities Bill', 
+        amount: 8500, 
+        currency: 'JPY',
+        created_at: new Date().toISOString(), 
+        paid_by: `${user.id}_friend_3`, 
+        group_id: `${user.id}_group_2`, 
+        split_between: [user.id, `${user.id}_friend_3`], 
+        category: 'Utilities' 
+      },
+    ];
+
+    return {
+      users: friends,
+      groups: demoGroups,
+      expenses: demoExpenses
+    };
+  };
 
   const loadUserData = async () => {
     if (isDemoMode || !currentUser) return;
     
     setIsDataLoading(true);
     try {
-      // Load all users
-      const usersResult = await getAllUsers();
+      // Load user preferences
+      const preferencesResult = await getUserPreferences(currentUser.id);
+      if (preferencesResult.success) {
+        setUserPreferences(preferencesResult.preferences);
+      }
+
+      // Load user's friends (not all users)
+      const usersResult = await getUserFriends(currentUser.id);
       if (usersResult.success) {
         setUsers(usersResult.data);
       }
 
-      // Load user's groups
+      // Load user's groups (only groups they're members of)
       const groupsResult = await getUserGroups(currentUser.id);
       if (groupsResult.success) {
         setGroups(groupsResult.data);
       }
 
-      // Load user's expenses
+      // Load user's expenses (only expenses they're involved in)
       const expensesResult = await getUserExpenses(currentUser.id);
       if (expensesResult.success) {
         setExpenses(expensesResult.data);
@@ -237,15 +355,39 @@ function AppRouter() {
 
   // --- Logic & Calculations ---
 
-  // Calculate debts for the current user
+  // Calculate debts for the current user (in their preferred currency)
   const balances = useMemo(() => {
     if (!currentUser) return { totalOwed: 0, totalOwes: 0, details: {} };
+    // Note: For now, using original calculation. In production, you'd want to
+    // convert all expense amounts to user's preferred currency before calculating
     return calculateBalances(expenses, currentUser.id, users);
-  }, [expenses, currentUser?.id, users]);
+  }, [expenses, currentUser?.id, users, userPreferences.currency]);
 
-  // Format currency
-  const formatMoney = (amount) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  // Format currency with conversion to user's preferred currency
+  const formatMoney = async (amount, originalCurrency = 'USD') => {
+    const userCurrency = userPreferences.currency || 'USD';
+    
+    if (originalCurrency === userCurrency) {
+      return formatCurrency(amount, userCurrency);
+    }
+    
+    try {
+      const { success, amount: convertedAmount } = await convertCurrency(amount, originalCurrency, userCurrency);
+      if (success) {
+        return formatCurrency(convertedAmount, userCurrency);
+      }
+    } catch (error) {
+      console.error('Currency conversion failed:', error);
+    }
+    
+    // Fallback: show original currency
+    return formatCurrency(amount, originalCurrency);
+  };
+  
+  // Synchronous version for immediate display (uses cached rates or shows original)
+  const formatMoneySync = (amount, originalCurrency = 'USD') => {
+    const userCurrency = userPreferences.currency || 'USD';
+    return formatCurrency(amount, originalCurrency);
   };
 
   // --- Handlers ---
@@ -257,6 +399,7 @@ function AppRouter() {
         id: generateId(),
         description: expense.description,
         amount: expense.amount,
+        currency: expense.currency || 'USD',
         created_at: new Date().toISOString(),
         paid_by: expense.paid_by,
         group_id: expense.group_id,
@@ -300,6 +443,78 @@ function AppRouter() {
       } else {
         alert('Failed to create group: ' + result.error);
         return;
+      }
+    }
+  };
+
+  const handleEditGroup = async (groupId, groupData) => {
+    if (isDemoMode) {
+      // Demo mode - update local state
+      setGroups(groups.map(group => 
+        group.id === groupId ? { ...group, ...groupData } : group
+      ));
+    } else {
+      // Database mode
+      const result = await updateGroup(groupId, groupData);
+      if (result.success) {
+        // Reload groups to get updated data
+        const groupsResult = await getUserGroups(currentUser.id);
+        if (groupsResult.success) {
+          setGroups(groupsResult.data);
+        }
+      } else {
+        alert('Failed to update group: ' + result.error);
+        throw new Error(result.error);
+      }
+    }
+  };
+
+  const handleDeleteGroup = async (group) => {
+    if (!confirm(`Are you sure you want to delete "${group.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    if (isDemoMode) {
+      // Demo mode - remove from local state
+      setGroups(groups.filter(g => g.id !== group.id));
+      // Also remove group-related expenses
+      setExpenses(expenses.filter(e => e.group_id !== group.id));
+    } else {
+      // Database mode
+      const result = await deleteGroup(group.id);
+      if (result.success) {
+        // Reload groups and expenses to get updated data
+        const groupsResult = await getUserGroups(currentUser.id);
+        if (groupsResult.success) {
+          setGroups(groupsResult.data);
+        }
+        const expensesResult = await getUserExpenses(currentUser.id);
+        if (expensesResult.success) {
+          setExpenses(expensesResult.data);
+        }
+      } else {
+        alert('Failed to delete group: ' + result.error);
+      }
+    }
+  };
+
+  const handleShowEditGroup = (group) => {
+    setSelectedGroupToEdit(group);
+    setIsEditGroupModalOpen(true);
+  };
+
+  const handleUpdatePreferences = async (preferences) => {
+    if (isDemoMode) {
+      // Demo mode - just update local state
+      setUserPreferences(preferences);
+    } else {
+      // Database mode
+      const result = await updateUserPreferences(currentUser.id, preferences);
+      if (result.success) {
+        setUserPreferences(preferences);
+      } else {
+        alert('Failed to update preferences: ' + result.error);
+        throw new Error(result.error);
       }
     }
   };
@@ -358,8 +573,8 @@ function AppRouter() {
       // Database mode
       const result = await addFriend(friendDataWithAvatar, currentUser.id);
       if (result.success) {
-        // Reload users to get updated data
-        const usersResult = await getAllUsers();
+        // Reload user's friends to get updated data
+        const usersResult = await getUserFriends(currentUser.id);
         if (usersResult.success) {
           setUsers(usersResult.data);
         }
@@ -368,6 +583,65 @@ function AppRouter() {
         throw new Error(result.error);
       }
     }
+  };
+
+  const handleEditUser = async (userId, userData) => {
+    if (isDemoMode) {
+      // Demo mode - update local state
+      setUsers(users.map(user => 
+        user.id === userId ? { ...user, ...userData } : user
+      ));
+    } else {
+      // Database mode
+      const result = await updateUser(userId, userData);
+      if (result.success) {
+        // Reload user's friends to get updated data
+        const usersResult = await getUserFriends(currentUser.id);
+        if (usersResult.success) {
+          setUsers(usersResult.data);
+        }
+      } else {
+        alert('Failed to update user: ' + result.error);
+        throw new Error(result.error);
+      }
+    }
+  };
+
+  const handleDeleteUser = async (user) => {
+    if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+      return;
+    }
+
+    if (isDemoMode) {
+      // Demo mode - remove from local state
+      setUsers(users.filter(u => u.id !== user.id));
+      // Also remove from groups
+      setGroups(groups.map(group => ({
+        ...group,
+        members: group.members.filter(memberId => memberId !== user.id)
+      })));
+    } else {
+      // Database mode
+      const result = await deleteUser(user.id);
+      if (result.success) {
+        // Reload user's friends and groups to get updated data
+        const usersResult = await getUserFriends(currentUser.id);
+        if (usersResult.success) {
+          setUsers(usersResult.data);
+        }
+        const groupsResult = await getUserGroups(currentUser.id);
+        if (groupsResult.success) {
+          setGroups(groupsResult.data);
+        }
+      } else {
+        alert('Failed to delete user: ' + result.error);
+      }
+    }
+  };
+
+  const handleShowEditUser = (user) => {
+    setSelectedUserToEdit(user);
+    setIsEditUserModalOpen(true);
   };
 
   const handleGoogleCallback = async (credentialResponse) => {
@@ -525,13 +799,11 @@ function AppRouter() {
     setIsAuthenticated(false);
     setShowLanding(true);
     setGoogleUser(null);
-    setCurrentUser(isDemoMode ? DEMO_USERS[0] : null);
-    // Reset to demo data if in demo mode
-    if (isDemoMode) {
-      setUsers(DEMO_USERS);
-      setGroups(DEMO_GROUPS);
-      setExpenses(DEMO_EXPENSES);
-    }
+    setCurrentUser(null);
+    // Clear all user data
+    setUsers([]);
+    setGroups([]);
+    setExpenses([]);
     
     // Navigate to welcome page
     navigate('/welcome');
@@ -606,6 +878,7 @@ function AppRouter() {
                 setSelectedGroup={setSelectedGroup}
                 handleLogout={handleLogout}
                 setIsExpenseModalOpen={setIsExpenseModalOpen}
+                setIsSettingsModalOpen={setIsSettingsModalOpen}
               />
             </ProtectedRoute>
           }
@@ -616,10 +889,11 @@ function AppRouter() {
             element={
               <DashboardView 
                 balances={balances}
-                formatMoney={formatMoney}
+                formatMoney={formatMoneySync}
                 users={users}
                 handleSettleUp={handleSettleUp}
                 expenses={expenses}
+                userCurrency={userPreferences.currency}
               />
             } 
           />
@@ -633,6 +907,9 @@ function AppRouter() {
                 getGroupBalance={getGroupBalance}
                 setShowAddGroup={() => setIsGroupModalOpen(true)}
                 setSelectedGroup={setSelectedGroup}
+                onEditGroup={handleShowEditGroup}
+                onDeleteGroup={handleDeleteGroup}
+                userCurrency={userPreferences.currency}
               />
             } 
           />
@@ -646,6 +923,9 @@ function AppRouter() {
                 formatMoney={formatMoney}
                 handleSettleUp={handleSettleUp}
                 setShowAddFriend={() => setIsFriendModalOpen(true)}
+                onEditUser={handleShowEditUser}
+                onDeleteUser={handleDeleteUser}
+                userCurrency={userPreferences.currency}
               />
             } 
           />
@@ -656,7 +936,8 @@ function AppRouter() {
                 expenses={selectedGroup ? expenses.filter(e => e.group_id === selectedGroup.id) : expenses}
                 users={users}
                 currentUser={currentUser}
-                formatMoney={formatMoney}
+                formatMoney={formatMoneySync}
+                userCurrency={userPreferences.currency}
                 isLoading={isDataLoading}
               />
             } 
@@ -694,6 +975,35 @@ function AppRouter() {
         isOpen={isFriendModalOpen}
         onClose={() => setIsFriendModalOpen(false)}
         onAddFriend={handleAddFriend}
+      />
+
+      <EditUserModal
+        isOpen={isEditUserModalOpen}
+        onClose={() => {
+          setIsEditUserModalOpen(false);
+          setSelectedUserToEdit(null);
+        }}
+        user={selectedUserToEdit}
+        onEditUser={handleEditUser}
+      />
+
+      <EditGroupModal
+        isOpen={isEditGroupModalOpen}
+        onClose={() => {
+          setIsEditGroupModalOpen(false);
+          setSelectedGroupToEdit(null);
+        }}
+        group={selectedGroupToEdit}
+        users={users}
+        currentUser={currentUser}
+        onEditGroup={handleEditGroup}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        userPreferences={userPreferences}
+        onUpdatePreferences={handleUpdatePreferences}
       />
     </>
   );

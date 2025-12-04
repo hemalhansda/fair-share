@@ -4,13 +4,15 @@ import { Check } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import ExpenseItem from '../expenses/ExpenseItem';
+import { formatCurrency } from '../../services/currency';
 
 const DashboardView = ({ 
   balances, 
   formatMoney, 
   users, 
   handleSettleUp, 
-  expenses 
+  expenses,
+  userCurrency = 'USD'
 }) => {
   const navigate = useNavigate();
 
@@ -20,11 +22,11 @@ const DashboardView = ({
     <div className="grid grid-cols-2 gap-4">
       <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 flex flex-col">
         <span className="text-emerald-600 font-medium text-xs uppercase tracking-wider mb-1">You are owed</span>
-        <span className="text-2xl font-bold text-emerald-700">{formatMoney(balances.totalOwed)}</span>
+        <span className="text-2xl font-bold text-emerald-700">{formatCurrency(balances.totalOwed, userCurrency)}</span>
       </div>
       <div className="bg-rose-50 p-4 rounded-2xl border border-rose-100 flex flex-col">
         <span className="text-rose-600 font-medium text-xs uppercase tracking-wider mb-1">You owe</span>
-        <span className="text-2xl font-bold text-rose-700">{formatMoney(balances.totalOwes)}</span>
+        <span className="text-2xl font-bold text-rose-700">{formatCurrency(balances.totalOwes, userCurrency)}</span>
       </div>
     </div>
 
@@ -51,7 +53,7 @@ const DashboardView = ({
               </div>
               <div className="text-right">
                 <div className={`font-bold ${isOwed ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {formatMoney(Math.abs(amount))}
+                  {formatCurrency(Math.abs(amount), userCurrency)}
                 </div>
                 <button 
                   onClick={() => handleSettleUp(userId)}
@@ -82,7 +84,8 @@ const DashboardView = ({
             expense={expense} 
             users={users} 
             currentUser={users[0]} 
-            formatMoney={formatMoney} 
+            formatMoney={formatMoney}
+            userCurrency={userCurrency}
           />
         ))}
       </div>

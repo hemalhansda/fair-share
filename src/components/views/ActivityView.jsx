@@ -7,6 +7,7 @@ const ActivityView = ({
   users, 
   currentUser, 
   formatMoney,
+  userCurrency = 'USD',
   isLoading 
 }) => (
   <div className="space-y-6">
@@ -26,7 +27,8 @@ const ActivityView = ({
             expense={expense} 
             users={users} 
             currentUser={currentUser} 
-            formatMoney={formatMoney} 
+            formatMoney={formatMoney}
+            userCurrency={userCurrency}
           />
         ))}
         

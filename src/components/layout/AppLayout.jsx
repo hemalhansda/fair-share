@@ -9,7 +9,8 @@ const AppLayout = ({
   currentUser, 
   setSelectedGroup, 
   handleLogout,
-  setIsExpenseModalOpen 
+  setIsExpenseModalOpen,
+  setIsSettingsModalOpen 
 }) => {
   return (
     <div className="h-screen w-full bg-gray-50 flex overflow-hidden font-sans text-gray-900">
@@ -18,6 +19,7 @@ const AppLayout = ({
         currentUser={currentUser}
         setSelectedGroup={setSelectedGroup}
         handleLogout={handleLogout}
+        setIsSettingsModalOpen={setIsSettingsModalOpen}
       />
 
       {/* Main Content Area */}

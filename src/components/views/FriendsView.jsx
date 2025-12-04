@@ -1,7 +1,8 @@
 import React from 'react';
-import { UserPlus, Check } from 'lucide-react';
+import { UserPlus, Check, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
+import { formatCurrency } from '../../services/currency';
 
 const FriendsView = ({ 
   users, 
@@ -9,7 +10,10 @@ const FriendsView = ({
   balances, 
   formatMoney, 
   handleSettleUp, 
-  setShowAddFriend 
+  setShowAddFriend,
+  onEditUser,
+  onDeleteUser,
+  userCurrency = 'USD'
 }) => (
   <div className="space-y-4">
     <div className="flex justify-between items-center">
@@ -25,7 +29,7 @@ const FriendsView = ({
         const isOwed = balance > 0;
         
         return (
-          <div key={user.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+          <div key={user.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors group">
             <div className="flex items-center gap-3">
               <Avatar user={user} />
               <div>
@@ -33,25 +37,45 @@ const FriendsView = ({
                 <div className="text-xs text-gray-500">{user.email}</div>
               </div>
             </div>
-            <div className="text-right">
-              {Math.abs(balance) > 0.01 ? (
-                <>
-                  <div className={`font-bold text-sm ${isOwed ? 'text-emerald-500' : 'text-rose-500'}`}>
-                    {isOwed ? 'owes you' : 'you owe'} {formatMoney(Math.abs(balance))}
+            <div className="flex items-center gap-3">
+              <div className="text-right">
+                {Math.abs(balance) > 0.01 ? (
+                  <>
+                    <div className={`font-bold text-sm ${isOwed ? 'text-emerald-500' : 'text-rose-500'}`}>
+                      {isOwed ? 'owes you' : 'you owe'} {formatCurrency(Math.abs(balance), userCurrency)}
+                    </div>
+                    <button 
+                      onClick={() => handleSettleUp(user.id)}
+                      className="text-xs text-blue-500 hover:underline mt-1"
+                    >
+                      Settle Up
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-xs text-gray-400 flex items-center gap-1">
+                    <Check size={12} className="text-emerald-500" />
+                    All settled
                   </div>
-                  <button 
-                    onClick={() => handleSettleUp(user.id)}
-                    className="text-xs text-blue-500 hover:underline mt-1"
-                  >
-                    Settle Up
-                  </button>
-                </>
-              ) : (
-                <div className="text-xs text-gray-400 flex items-center gap-1">
-                  <Check size={12} className="text-emerald-500" />
-                  All settled
-                </div>
-              )}
+                )}
+              </div>
+              
+              {/* Actions menu */}
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onEditUser(user)}
+                  className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit friend"
+                >
+                  <Edit2 size={16} />
+                </button>
+                <button
+                  onClick={() => onDeleteUser(user)}
+                  className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete friend"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           </div>
         );

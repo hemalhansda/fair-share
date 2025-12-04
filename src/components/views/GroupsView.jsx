@@ -1,7 +1,8 @@
 import React from 'react';
-import { Users, Plus } from 'lucide-react';
+import { Users, Plus, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
+import { formatCurrency } from '../../services/currency';
 
 const GroupsView = ({ 
   groups, 
@@ -9,7 +10,10 @@ const GroupsView = ({
   formatMoney, 
   getGroupBalance, 
   setShowAddGroup, 
-  setSelectedGroup 
+  setSelectedGroup,
+  onEditGroup,
+  onDeleteGroup,
+  userCurrency = 'USD'
 }) => (
   <div className="space-y-6">
     <div className="flex justify-between items-center">
@@ -24,11 +28,13 @@ const GroupsView = ({
       {groups.map(group => (
         <div 
           key={group.id} 
-          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer"
-          onClick={() => setSelectedGroup(group)}
+          className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group"
         >
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+            <div 
+              className="flex items-center gap-3 cursor-pointer flex-1"
+              onClick={() => setSelectedGroup(group)}
+            >
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <Users className="w-6 h-6 text-blue-600" />
               </div>
@@ -37,9 +43,36 @@ const GroupsView = ({
                 <p className="text-sm text-gray-500">{group.members?.length || 0} members</p>
               </div>
             </div>
+            
+            {/* Actions menu */}
+            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditGroup(group);
+                }}
+                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                title="Edit group"
+              >
+                <Edit2 size={16} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteGroup(group);
+                }}
+                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                title="Delete group"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
           
-          <div className="flex items-center justify-between">
+          <div 
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setSelectedGroup(group)}
+          >
             <div className="flex -space-x-2">
               {group.members?.slice(0, 4).map(memberId => {
                 const user = users.find(u => u.id === memberId);
@@ -57,7 +90,7 @@ const GroupsView = ({
             <div className="text-right">
               <div className="text-sm text-gray-500">Your balance</div>
               <div className={`font-semibold ${getGroupBalance(group.id) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                {formatMoney(getGroupBalance(group.id))}
+                {formatCurrency(getGroupBalance(group.id), userCurrency)}
               </div>
             </div>
           </div>

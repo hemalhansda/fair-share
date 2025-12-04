@@ -3,6 +3,7 @@ import { X, DollarSign } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Avatar from '../ui/Avatar';
+import { CURRENCIES, getCurrencyOptions, getCurrencySymbol } from '../../services/currency';
 
 const AddExpenseModal = ({ 
   isOpen, 
@@ -14,6 +15,7 @@ const AddExpenseModal = ({
 }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [paidBy, setPaidBy] = useState(currentUser?.id || '');
   const [splitWith, setSplitWith] = useState([]);
   const [groupId, setGroupId] = useState('');
@@ -27,6 +29,7 @@ const AddExpenseModal = ({
     const expense = {
       description: description.trim(),
       amount: parseFloat(amount),
+      currency: currency,
       paid_by: paidBy,
       group_id: groupId || null,
       split_with: splitWith,
@@ -41,6 +44,7 @@ const AddExpenseModal = ({
   const handleClose = () => {
     setDescription('');
     setAmount('');
+    setCurrency('USD');
     setPaidBy(currentUser?.id || '');
     setSplitWith([]);
     setGroupId('');
@@ -88,22 +92,43 @@ const AddExpenseModal = ({
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Amount
-          </label>
-          <div className="relative">
-            <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              required
-            />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Amount
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm font-medium">
+                {getCurrencySymbol(currency)}
+              </span>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.00"
+                step="0.01"
+                min="0"
+                required
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Currency
+            </label>
+            <select
+              value={currency}
+              onChange={(e) => setCurrency(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              {getCurrencyOptions().map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.value} - {option.symbol}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -196,7 +221,9 @@ const AddExpenseModal = ({
                       <Avatar user={user} size="sm" />
                       <span className="text-sm flex-1">{user?.name}</span>
                       <div className="relative w-24">
-                        <DollarSign className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+                        <span className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 text-xs">
+                          {getCurrencySymbol(currency)}
+                        </span>
                         <input
                           type="number"
                           value={customSplits[userId] || ''}

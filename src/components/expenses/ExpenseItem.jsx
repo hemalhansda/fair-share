@@ -1,8 +1,9 @@
 import React from 'react';
 import { Receipt, Users } from 'lucide-react';
 import Avatar from '../ui/Avatar';
+import { formatCurrency, getCurrencySymbol } from '../../services/currency';
 
-const ExpenseItem = ({ expense, users, currentUser, formatMoney }) => {
+const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 'USD' }) => {
   // Handle both old and new data formats
   const paidById = expense.paid_by || expense.paidBy;
   const expenseDate = expense.created_at || expense.date;
@@ -22,7 +23,14 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney }) => {
           <div className="flex items-start justify-between mb-1">
             <h3 className="font-semibold text-gray-800 truncate">{expense.description}</h3>
             <div className="text-right flex-shrink-0 ml-2">
-              <div className="font-bold text-gray-800">{formatMoney(expense.amount)}</div>
+              <div className="font-bold text-gray-800">
+                {formatCurrency(expense.amount, expense.currency || 'USD')}
+              </div>
+              {expense.currency && expense.currency !== userCurrency && (
+                <div className="text-xs text-gray-500">
+                  ({expense.currency})
+                </div>
+              )}
             </div>
           </div>
           
