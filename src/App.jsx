@@ -25,32 +25,30 @@ import {
   User
 } from 'lucide-react';
 
+// Database services
+import { 
+  createOrUpdateUser,
+  getAllUsers,
+  addFriend,
+  createGroup,
+  getUserGroups,
+  createExpense,
+  getUserExpenses,
+  calculateBalances,
+  isSupabaseConfigured,
+  DEMO_USERS,
+  DEMO_GROUPS,
+  DEMO_EXPENSES
+} from './services/database.js';
+
 // --- Data Structures ---
 // User: { id, name, email, avatar }
 // Group: { id, name, members[], type }
 // Expense: { id, description, amount, date, paidBy, groupId?, splitBetween[], category }
 // Debt: { from, to, amount }
 
-// --- Mock Data Generators ---
+// --- Utility Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
-
-const INITIAL_USERS = [
-  { id: 'u1', name: 'You', email: 'you@example.com', avatar: 'Me' },
-  { id: 'u2', name: 'Alice', email: 'alice@example.com', avatar: 'AL' },
-  { id: 'u3', name: 'Bob', email: 'bob@example.com', avatar: 'BO' },
-  { id: 'u4', name: 'Charlie', email: 'charlie@example.com', avatar: 'CH' },
-];
-
-const INITIAL_GROUPS = [
-  { id: 'g1', name: 'Vegas Trip', members: ['u1', 'u2', 'u3'], type: 'Trip' },
-  { id: 'g2', name: 'Apartment 4B', members: ['u1', 'u4'], type: 'Home' },
-];
-
-const INITIAL_EXPENSES = [
-  { id: 'e1', description: 'Hotel Booking', amount: 300, date: new Date().toISOString(), paidBy: 'u1', groupId: 'g1', splitBetween: ['u1', 'u2', 'u3'], category: 'Travel' },
-  { id: 'e2', description: 'Dinner', amount: 90, date: new Date().toISOString(), paidBy: 'u2', groupId: 'g1', splitBetween: ['u1', 'u2', 'u3'], category: 'Food' },
-  { id: 'e3', description: 'Internet Bill', amount: 60, date: new Date().toISOString(), paidBy: 'u4', groupId: 'g2', splitBetween: ['u1', 'u4'], category: 'Utilities' },
-];
 
 // --- Components ---
 
@@ -136,11 +134,15 @@ export default function App() {
   const [googleUser, setGoogleUser] = useState(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   
+  // Database state
+  const [isDemoMode, setIsDemoMode] = useState(!isSupabaseConfigured());
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  
   // State
-  const [users, setUsers] = useState(INITIAL_USERS);
-  const [groups, setGroups] = useState(INITIAL_GROUPS);
-  const [expenses, setExpenses] = useState(INITIAL_EXPENSES);
-  const [currentUser, setCurrentUser] = useState(INITIAL_USERS[0]); // Will be updated with Google user
+  const [users, setUsers] = useState(isDemoMode ? DEMO_USERS : []);
+  const [groups, setGroups] = useState(isDemoMode ? DEMO_GROUPS : []);
+  const [expenses, setExpenses] = useState(isDemoMode ? DEMO_EXPENSES : []);
+  const [currentUser, setCurrentUser] = useState(isDemoMode ? DEMO_USERS[0] : null);
   
   // Navigation State
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -161,12 +163,14 @@ export default function App() {
   // Google OAuth setup
   useEffect(() => {
     const initGoogleAuth = () => {
-      if (window.google) {
+      if (window.google && window.google.accounts) {
         window.google.accounts.id.initialize({
-          client_id: '941779667008-mbobvmnlm2k9p8h8tfe8imbqf837il33.apps.googleusercontent.com', // Demo client ID
+          client_id: '372713663318-11ob025d5sp4j0l6ec8kebpmhm9fldt9.apps.googleusercontent.com',
           callback: handleGoogleCallback,
           auto_select: false,
+          cancel_on_tap_outside: false
         });
+        console.log('Google OAuth initialized successfully');
       }
     };
 
@@ -192,38 +196,51 @@ export default function App() {
     return () => clearInterval(interval);
   }, [showLanding, isAuthenticated]);
 
+  // Load user data after authentication
+  useEffect(() => {
+    if (isAuthenticated && currentUser && !isDemoMode) {
+      loadUserData();
+    }
+  }, [isAuthenticated, currentUser?.id, isDemoMode]);
+
+  // --- Database Loading Functions ---
+
+  const loadUserData = async () => {
+    if (isDemoMode || !currentUser) return;
+    
+    setIsDataLoading(true);
+    try {
+      // Load all users
+      const usersResult = await getAllUsers();
+      if (usersResult.success) {
+        setUsers(usersResult.data);
+      }
+
+      // Load user's groups
+      const groupsResult = await getUserGroups(currentUser.id);
+      if (groupsResult.success) {
+        setGroups(groupsResult.data);
+      }
+
+      // Load user's expenses
+      const expensesResult = await getUserExpenses(currentUser.id);
+      if (expensesResult.success) {
+        setExpenses(expensesResult.data);
+      }
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setIsDataLoading(false);
+    }
+  };
+
   // --- Logic & Calculations ---
 
   // Calculate debts for the current user
   const balances = useMemo(() => {
-    let owedToUser = 0;
-    let userOwes = 0;
-    const debts = {}; // userId -> amount (positive = they owe you, negative = you owe them)
-
-    expenses.forEach(expense => {
-      const splitAmount = expense.amount / expense.splitBetween.length;
-
-      if (expense.paidBy === currentUser.id) {
-        // You paid, others owe you
-        expense.splitBetween.forEach(memberId => {
-          if (memberId !== currentUser.id) {
-            debts[memberId] = (debts[memberId] || 0) + splitAmount;
-          }
-        });
-      } else if (expense.splitBetween.includes(currentUser.id)) {
-        // Someone else paid, you owe them
-        debts[expense.paidBy] = (debts[expense.paidBy] || 0) - splitAmount;
-      }
-    });
-
-    // Aggregate totals
-    Object.values(debts || {}).forEach(amount => {
-      if (amount > 0) owedToUser += amount;
-      if (amount < 0) userOwes += Math.abs(amount);
-    });
-
-    return { totalOwed: owedToUser, totalOwes: userOwes, details: debts };
-  }, [expenses, currentUser.id]);
+    if (!currentUser) return { totalOwed: 0, totalOwes: 0, details: {} };
+    return calculateBalances(expenses, currentUser.id, users);
+  }, [expenses, currentUser?.id, users]);
 
   // Format currency
   const formatMoney = (amount) => {
@@ -232,7 +249,7 @@ export default function App() {
 
   // --- Handlers ---
 
-  const handleAddExpense = (e) => {
+  const handleAddExpense = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const amount = parseFloat(formData.get('amount'));
@@ -241,37 +258,51 @@ export default function App() {
     const payerId = formData.get('payer');
     
     // Simple split: If group selected, split by all group members. If no group, split by Payer + User.
-    // Ideally this would be a multi-select UI, simplified for this demo.
     let splitUsers = [];
     if (groupId && groupId !== 'none') {
       const group = groups.find(g => g.id === groupId);
-      splitUsers = group ? group.members : [currentUser.id];
+      splitUsers = group ? group.members : [currentUser?.id].filter(Boolean);
     } else {
-      // If "No Group", assume it's a split between current user and the "payer" (if payer is someone else)
-      // Or if you pay, you need to select a friend.
-      // For MVP simplicity: Default "No Group" expenses are split between You and ALL Friends.
-      // Let's make it specific: Split between You and the 'Other' person involved.
-      // Since the form is simple, let's just grab all users for now as a fallback or specific logic.
-      // IMPROVEMENT: Let's assume No Group = Split equally with everyone in the system (Demo Mode)
+      // If "No Group", split between all users (demo mode) or just with current user
       splitUsers = users.map(u => u.id); 
     }
 
-    const newExpense = {
-      id: generateId(),
+    const expenseData = {
       description,
       amount,
-      date: new Date().toISOString(),
       paidBy: payerId,
       groupId: groupId === 'none' ? undefined : groupId,
       splitBetween: splitUsers,
       category: 'General'
     };
 
-    setExpenses([newExpense, ...expenses]);
+    if (isDemoMode) {
+      // Demo mode - just update local state
+      const newExpense = {
+        id: generateId(),
+        ...expenseData,
+        date: new Date().toISOString()
+      };
+      setExpenses([newExpense, ...expenses]);
+    } else {
+      // Database mode
+      const result = await createExpense(expenseData);
+      if (result.success) {
+        // Reload expenses to get updated data
+        const expensesResult = await getUserExpenses(currentUser.id);
+        if (expensesResult.success) {
+          setExpenses(expensesResult.data);
+        }
+      } else {
+        alert('Failed to add expense: ' + result.error);
+        return;
+      }
+    }
+
     setIsExpenseModalOpen(false);
   };
 
-  const handleAddGroup = (e) => {
+  const handleAddGroup = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const name = formData.get('name');
@@ -282,14 +313,34 @@ export default function App() {
     const checkboxes = e.target.querySelectorAll('input[name="members"]:checked');
     checkboxes.forEach(checkbox => selectedMembers.push(checkbox.value));
     
-    const newGroup = {
-      id: generateId(),
+    const groupData = {
       name,
       type,
-      members: [currentUser.id, ...selectedMembers] 
+      members: [currentUser?.id, ...selectedMembers].filter(Boolean) 
     };
 
-    setGroups([...groups, newGroup]);
+    if (isDemoMode) {
+      // Demo mode - just update local state
+      const newGroup = {
+        id: generateId(),
+        ...groupData
+      };
+      setGroups([...groups, newGroup]);
+    } else {
+      // Database mode
+      const result = await createGroup(groupData, currentUser.id);
+      if (result.success) {
+        // Reload groups to get updated data
+        const groupsResult = await getUserGroups(currentUser.id);
+        if (groupsResult.success) {
+          setGroups(groupsResult.data);
+        }
+      } else {
+        alert('Failed to create group: ' + result.error);
+        return;
+      }
+    }
+
     setIsGroupModalOpen(false);
   };
 
@@ -306,8 +357,8 @@ export default function App() {
       amount: amount,
       date: new Date().toISOString(),
       // If user owes friend, user pays. If friend owes user, friend pays.
-      paidBy: userOwesFriend ? currentUser.id : friendId, 
-      splitBetween: [userOwesFriend ? friendId : currentUser.id], // The receiver keeps 100% of value, logic is slightly diff for settlement
+      paidBy: userOwesFriend ? currentUser?.id : friendId, 
+      splitBetween: [userOwesFriend ? friendId : currentUser?.id].filter(Boolean), // The receiver keeps 100% of value, logic is slightly diff for settlement
       // Actually, settlement is just a transaction that reverses the balance.
       // Standard way: A pays B $50. The split is 100% assigned to A (so A "consumed" 0, paid 50. B "consumed" 0, paid 0).
       // Wait, simpler: A pays B. B receives money.
@@ -324,30 +375,50 @@ export default function App() {
 
     // Override the split logic above for the settlement specifically
     // We need to inject the expense such that the 'splitBetween' implies who 'benefited' (received the money)
-    settlementExpense.splitBetween = [userOwesFriend ? friendId : currentUser.id];
+    settlementExpense.splitBetween = [userOwesFriend ? friendId : currentUser?.id].filter(Boolean);
     
     setExpenses([settlementExpense, ...expenses]);
     setIsSettleModalOpen(false);
   };
 
-  const handleAddFriend = (e) => {
+  const handleAddFriend = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     const name = formData.get('name');
     const email = formData.get('email');
     
-    const newUser = {
-      id: generateId(),
+    const friendData = {
       name,
       email,
       avatar: name.substring(0, 2).toUpperCase()
     };
 
-    setUsers([...users, newUser]);
+    if (isDemoMode) {
+      // Demo mode - just update local state
+      const newUser = {
+        id: generateId(),
+        ...friendData
+      };
+      setUsers([...users, newUser]);
+    } else {
+      // Database mode
+      const result = await addFriend(friendData, currentUser.id);
+      if (result.success) {
+        // Reload users to get updated data
+        const usersResult = await getAllUsers();
+        if (usersResult.success) {
+          setUsers(usersResult.data);
+        }
+      } else {
+        alert('Failed to add friend: ' + result.error);
+        return;
+      }
+    }
+
     setIsFriendModalOpen(false);
   };
 
-  const handleGoogleCallback = (credentialResponse) => {
+  const handleGoogleCallback = async (credentialResponse) => {
     try {
       setIsGoogleLoading(true);
       
@@ -359,9 +430,18 @@ export default function App() {
         id: payload.sub,
         name: payload.name,
         email: payload.email,
-        avatar: payload.given_name.substring(0, 2).toUpperCase(),
+        avatar: payload.given_name?.substring(0, 2).toUpperCase() || payload.name?.substring(0, 2).toUpperCase(),
         picture: payload.picture
       };
+      
+      // Create or update user in database (if not in demo mode)
+      if (!isDemoMode) {
+        const result = await createOrUpdateUser(googleUserData);
+        if (!result.success) {
+          console.error('Failed to create/update user:', result.error);
+          // Continue anyway, might be network issue
+        }
+      }
       
       // Update states
       setGoogleUser(googleUserData);
@@ -382,8 +462,57 @@ export default function App() {
   };
 
   const handleGoogleLogin = () => {
-    if (window.google) {
-      window.google.accounts.id.prompt();
+    console.log('handleGoogleLogin called');
+    
+    if (window.google && window.google.accounts) {
+      try {
+        // Request credentials directly
+        window.google.accounts.id.prompt((notification) => {
+          console.log('Prompt notification:', notification);
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            // If prompt fails, try alternative method
+            console.log('Prompt failed, showing manual login');
+            // Create a temporary container for Google button
+            const tempContainer = document.createElement('div');
+            tempContainer.style.position = 'fixed';
+            tempContainer.style.top = '50%';
+            tempContainer.style.left = '50%';
+            tempContainer.style.transform = 'translate(-50%, -50%)';
+            tempContainer.style.zIndex = '10000';
+            tempContainer.style.backgroundColor = 'white';
+            tempContainer.style.padding = '20px';
+            tempContainer.style.borderRadius = '10px';
+            tempContainer.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+            
+            document.body.appendChild(tempContainer);
+            
+            window.google.accounts.id.renderButton(tempContainer, {
+              theme: 'outline',
+              size: 'large',
+              type: 'standard',
+              shape: 'rectangular',
+              text: 'signin_with',
+              logo_alignment: 'left'
+            });
+            
+            // Add close button
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '✕';
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.top = '5px';
+            closeBtn.style.right = '10px';
+            closeBtn.style.border = 'none';
+            closeBtn.style.background = 'none';
+            closeBtn.style.fontSize = '16px';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.onclick = () => document.body.removeChild(tempContainer);
+            tempContainer.appendChild(closeBtn);
+          }
+        });
+      } catch (error) {
+        console.error('Google login error:', error);
+        alert('Error during Google login. Please try again.');
+      }
     } else {
       alert('Google authentication is loading. Please try again in a moment.');
     }
@@ -396,7 +525,13 @@ export default function App() {
     setIsAuthenticated(false);
     setShowLanding(true);
     setGoogleUser(null);
-    setCurrentUser(INITIAL_USERS[0]);
+    setCurrentUser(isDemoMode ? DEMO_USERS[0] : null);
+    // Reset to demo data if in demo mode
+    if (isDemoMode) {
+      setUsers(DEMO_USERS);
+      setGroups(DEMO_GROUPS);
+      setExpenses(DEMO_EXPENSES);
+    }
   };
 
   // Feature slides data
@@ -494,29 +629,26 @@ export default function App() {
             
             {/* CTA Buttons */}
             <div className="flex justify-center items-center mb-16">
-              <button
-                onClick={handleGoogleLogin}
-                disabled={isGoogleLoading}
-                className="group px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-2xl font-semibold text-lg hover:border-gray-300 hover:shadow-xl shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {isGoogleLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5" viewBox="0 0 24 24">
-                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                    </svg>
-                    Continue with Google
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </button>
+              {isGoogleLoading ? (
+                <div className="flex items-center gap-3 px-8 py-4">
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin"></div>
+                  <span className="text-gray-600">Signing in...</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleGoogleLogin}
+                  className="group px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-2xl font-semibold text-lg hover:border-gray-300 hover:shadow-xl shadow-lg transform hover:scale-105 transition-all duration-200 flex items-center gap-3"
+                >
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  Continue with Google
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -613,7 +745,7 @@ export default function App() {
       </div>
       
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
-        {users.filter(u => u.id !== currentUser.id).map(user => {
+        {users.filter(u => u.id !== currentUser?.id).map(user => {
           const balance = balances.details[user.id] || 0;
           const isOwed = balance > 0;
           
@@ -860,6 +992,28 @@ export default function App() {
   }
 
   // Show main app
+  // Don't render if no currentUser in database mode
+  if (!isDemoMode && !currentUser) {
+    return (
+      <div className="h-screen w-full bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-emerald-100 rounded-full flex items-center justify-center">
+            <User className="w-8 h-8 text-emerald-600" />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Welcome to FairShare</h2>
+          <p className="text-gray-600 mb-4">Please sign in to continue</p>
+          <button
+            onClick={handleGoogleLogin}
+            disabled={isGoogleLoading}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-lg font-medium hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGoogleLoading ? 'Signing in...' : 'Sign in with Google'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-full bg-gray-50 flex overflow-hidden font-sans text-gray-900">
       
@@ -896,8 +1050,8 @@ export default function App() {
           <div className="flex items-center gap-3 px-2">
             <Avatar user={currentUser} />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{currentUser.name}</p>
-              <p className="text-xs text-gray-500 truncate">{currentUser.email}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{currentUser?.name || 'Guest'}</p>
+              <p className="text-xs text-gray-500 truncate">{currentUser?.email || 'Not signed in'}</p>
             </div>
             <Settings size={18} className="text-gray-400 cursor-pointer hover:text-gray-600" />
           </div>
