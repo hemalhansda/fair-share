@@ -1,0 +1,70 @@
+import React from 'react';
+import { UserPlus, Check } from 'lucide-react';
+import Avatar from '../ui/Avatar';
+import Button from '../ui/Button';
+
+const FriendsView = ({ 
+  users, 
+  currentUser, 
+  balances, 
+  formatMoney, 
+  handleSettleUp, 
+  setIsFriendModalOpen 
+}) => (
+  <div className="space-y-4">
+    <div className="flex justify-between items-center">
+      <h2 className="text-xl font-bold text-gray-800">Friends</h2>
+      <Button onClick={() => setIsFriendModalOpen(true)} variant="secondary" className="!px-3 !py-1 text-sm">
+        <UserPlus size={16} /> Add Friend
+      </Button>
+    </div>
+    
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100">
+      {users.filter(u => u.id !== currentUser?.id).map(user => {
+        const balance = balances.details[user.id] || 0;
+        const isOwed = balance > 0;
+        
+        return (
+          <div key={user.id} className="p-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+            <div className="flex items-center gap-3">
+              <Avatar user={user} />
+              <div>
+                <div className="font-semibold text-gray-800">{user.name}</div>
+                <div className="text-xs text-gray-500">{user.email}</div>
+              </div>
+            </div>
+            <div className="text-right">
+              {Math.abs(balance) > 0.01 ? (
+                <>
+                  <div className={`font-bold text-sm ${isOwed ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    {isOwed ? 'owes you' : 'you owe'} {formatMoney(Math.abs(balance))}
+                  </div>
+                  <button 
+                    onClick={() => handleSettleUp(user.id)}
+                    className="text-xs text-blue-500 hover:underline mt-1"
+                  >
+                    Settle Up
+                  </button>
+                </>
+              ) : (
+                <div className="text-xs text-gray-400 flex items-center gap-1">
+                  <Check size={12} className="text-emerald-500" />
+                  All settled
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+      {users.length <= 1 && (
+        <div className="p-8 text-center text-gray-400">
+          <UserPlus className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+          <p>No friends added yet.</p>
+          <p className="text-xs mt-1">Add friends to start splitting expenses!</p>
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+export default FriendsView;
