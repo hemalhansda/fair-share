@@ -3,8 +3,13 @@ import { Receipt, Users } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 
 const ExpenseItem = ({ expense, users, currentUser, formatMoney }) => {
-  const paidByUser = users.find(u => u.id === expense.paid_by);
-  const isUserPaidBy = expense.paid_by === currentUser?.id;
+  // Handle both old and new data formats
+  const paidById = expense.paid_by || expense.paidBy;
+  const expenseDate = expense.created_at || expense.date;
+  const groupId = expense.group_id || expense.groupId;
+  
+  const paidByUser = users?.find(u => u.id === paidById) || { name: 'Unknown User', id: paidById };
+  const isUserPaidBy = paidById === currentUser?.id;
   
   return (
     <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
@@ -26,7 +31,7 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney }) => {
             <span>
               {isUserPaidBy ? 'You paid' : `${paidByUser?.name} paid`}
             </span>
-            {expense.group_id && (
+            {groupId && (
               <>
                 <span>•</span>
                 <Users className="w-3 h-3" />
@@ -36,12 +41,12 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney }) => {
           </div>
           
           <div className="text-xs text-gray-500">
-            {new Date(expense.created_at).toLocaleDateString('en-US', {
+            {expenseDate ? new Date(expenseDate).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
               hour: '2-digit',
               minute: '2-digit'
-            })}
+            }) : 'Unknown date'}
           </div>
         </div>
       </div>

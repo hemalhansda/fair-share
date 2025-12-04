@@ -464,18 +464,22 @@ export function calculateBalances(expenses, currentUserId, users) {
   const debts = {} // userId -> amount (positive = they owe you, negative = you owe them)
 
   expenses.forEach(expense => {
-    const splitAmount = expense.amount / expense.splitBetween.length
+    // Handle both old and new data formats
+    const paidById = expense.paid_by || expense.paidBy;
+    const splitBetween = expense.split_between || expense.splitBetween || [];
+    
+    const splitAmount = expense.amount / splitBetween.length
 
-    if (expense.paidBy === currentUserId) {
+    if (paidById === currentUserId) {
       // You paid, others owe you
-      expense.splitBetween.forEach(memberId => {
+      splitBetween.forEach(memberId => {
         if (memberId !== currentUserId) {
           debts[memberId] = (debts[memberId] || 0) + splitAmount
         }
       })
-    } else if (expense.splitBetween.includes(currentUserId)) {
+    } else if (splitBetween.includes(currentUserId)) {
       // Someone else paid, you owe them
-      debts[expense.paidBy] = (debts[expense.paidBy] || 0) - splitAmount
+      debts[paidById] = (debts[paidById] || 0) - splitAmount
     }
   })
 
@@ -503,9 +507,11 @@ export const DEMO_GROUPS = [
 ]
 
 export const DEMO_EXPENSES = [
-  { id: 'e1', description: 'Hotel Booking', amount: 300, date: new Date().toISOString(), paidBy: 'u1', groupId: 'g1', splitBetween: ['u1', 'u2', 'u3'], category: 'Travel' },
-  { id: 'e2', description: 'Dinner', amount: 90, date: new Date().toISOString(), paidBy: 'u2', groupId: 'g1', splitBetween: ['u1', 'u2', 'u3'], category: 'Food' },
-  { id: 'e3', description: 'Internet Bill', amount: 60, date: new Date().toISOString(), paidBy: 'u4', groupId: 'g2', splitBetween: ['u1', 'u4'], category: 'Utilities' },
+  { id: 'e1', description: 'Hotel Booking', amount: 300, created_at: new Date(Date.now() - 86400000).toISOString(), paid_by: 'u1', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Travel' },
+  { id: 'e2', description: 'Dinner at Restaurant', amount: 200, created_at: new Date(Date.now() - 172800000).toISOString(), paid_by: 'u2', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Food' },
+  { id: 'e3', description: 'Groceries', amount: 45, created_at: new Date(Date.now() - 259200000).toISOString(), paid_by: 'u1', group_id: 'g2', split_between: ['u1', 'u4'], category: 'Food' },
+  { id: 'e2', description: 'Dinner', amount: 90, created_at: new Date().toISOString(), paid_by: 'u2', group_id: 'g1', split_between: ['u1', 'u2', 'u3'], category: 'Food' },
+  { id: 'e3', description: 'Internet Bill', amount: 60, created_at: new Date().toISOString(), paid_by: 'u4', group_id: 'g2', split_between: ['u1', 'u4'], category: 'Utilities' },
 ]
 
 // Check if Supabase is properly configured

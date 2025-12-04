@@ -59,7 +59,7 @@ import {
 // --- Data Structures ---
 // User: { id, name, email, avatar }
 // Group: { id, name, members[], type }
-// Expense: { id, description, amount, date, paidBy, groupId?, splitBetween[], category }
+// Expense: { id, description, amount, created_at, paid_by, group_id?, split_between[], category }
 // Debt: { from, to, amount }
 
 // --- Utility Functions ---
@@ -240,8 +240,13 @@ function AppRouter() {
       // Demo mode - just update local state
       const newExpense = {
         id: generateId(),
-        ...expense,
-        created_at: new Date().toISOString()
+        description: expense.description,
+        amount: expense.amount,
+        created_at: new Date().toISOString(),
+        paid_by: expense.paid_by,
+        group_id: expense.group_id,
+        split_between: expense.split_with,
+        category: expense.category || 'General'
       };
       setExpenses([newExpense, ...expenses]);
     } else {
@@ -295,10 +300,10 @@ function AppRouter() {
       id: generateId(),
       description: 'Settlement',
       amount: amount,
-      date: new Date().toISOString(),
+      created_at: new Date().toISOString(),
       // If user owes friend, user pays. If friend owes user, friend pays.
-      paidBy: userOwesFriend ? currentUser?.id : friendId, 
-      splitBetween: [userOwesFriend ? friendId : currentUser?.id].filter(Boolean), // The receiver keeps 100% of value, logic is slightly diff for settlement
+      paid_by: userOwesFriend ? currentUser?.id : friendId, 
+      split_between: [userOwesFriend ? friendId : currentUser?.id].filter(Boolean), // The receiver keeps 100% of value, logic is slightly diff for settlement
       // Actually, settlement is just a transaction that reverses the balance.
       // Standard way: A pays B $50. The split is 100% assigned to A (so A "consumed" 0, paid 50. B "consumed" 0, paid 0).
       // Wait, simpler: A pays B. B receives money.
@@ -314,8 +319,8 @@ function AppRouter() {
     };
 
     // Override the split logic above for the settlement specifically
-    // We need to inject the expense such that the 'splitBetween' implies who 'benefited' (received the money)
-    settlementExpense.splitBetween = [userOwesFriend ? friendId : currentUser?.id].filter(Boolean);
+    // We need to inject the expense such that the 'split_between' implies who 'benefited' (received the money)
+    settlementExpense.split_between = [userOwesFriend ? friendId : currentUser?.id].filter(Boolean);
     
     setExpenses([settlementExpense, ...expenses]);
     setIsSettleModalOpen(false);
