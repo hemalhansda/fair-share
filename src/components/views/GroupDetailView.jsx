@@ -308,6 +308,13 @@ const GroupDetailView = ({
         users={users}
         currentUser={currentUser}
         userCurrency={userCurrency}
+        onUpdate={(updatedExpense) => {
+          // Handle expense update - you might want to refresh expenses here
+          console.log('Expense updated:', updatedExpense);
+          // Close modal after update
+          setShowExpenseDetail(false);
+          setSelectedExpense(null);
+        }}
       />
     </div>
   );

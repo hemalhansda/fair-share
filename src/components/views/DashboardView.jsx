@@ -112,6 +112,11 @@ const DashboardView = ({
       users={users}
       currentUser={currentUser}
       userCurrency={userCurrency}
+      onUpdate={(updatedExpense) => {
+        console.log('Expense updated:', updatedExpense);
+        setShowExpenseDetail(false);
+        setSelectedExpense(null);
+      }}
     />
   </div>
   );
