@@ -24,7 +24,7 @@ const LandingPage = ({
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
             <PieChart className="w-6 h-6 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-800">FairShare</h1>
+          <h1 className="text-2xl font-bold text-gray-800">fyrShare</h1>
         </div>
       </div>
     </header>

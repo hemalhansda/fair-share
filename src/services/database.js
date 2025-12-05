@@ -1167,7 +1167,7 @@ export async function updateUserPreferences(userId, preferences) {
     // For now, use localStorage until database schema is updated
     // This provides immediate functionality while waiting for DB migration
     if (typeof window !== 'undefined') {
-      const userPrefsKey = `fairshare_preferences_${userId}`
+      const userPrefsKey = `fyrshare_preferences_${userId}`
       localStorage.setItem(userPrefsKey, JSON.stringify(preferences))
       return { success: true, data: preferences }
     }
@@ -1208,7 +1208,7 @@ export async function getUserPreferences(userId) {
   try {
     // For now, use localStorage until database schema is updated
     if (typeof window !== 'undefined') {
-      const userPrefsKey = `fairshare_preferences_${userId}`
+      const userPrefsKey = `fyrshare_preferences_${userId}`
       const savedPrefs = localStorage.getItem(userPrefsKey)
       
       if (savedPrefs) {

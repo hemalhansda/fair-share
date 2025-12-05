@@ -190,8 +190,8 @@ function AppRouter() {
   useEffect(() => {
     const checkAuthState = () => {
       try {
-        const savedAuthState = localStorage.getItem('fairshare_auth_state');
-        const savedUser = localStorage.getItem('fairshare_user');
+        const savedAuthState = localStorage.getItem('fyrshare_auth_state');
+        const savedUser = localStorage.getItem('fyrshare_user');
         
         if (savedAuthState === 'true' && savedUser) {
           const userData = JSON.parse(savedUser);
@@ -203,8 +203,8 @@ function AppRouter() {
       } catch (error) {
         console.error('Error loading saved auth state:', error);
         // Clear invalid data
-        localStorage.removeItem('fairshare_auth_state');
-        localStorage.removeItem('fairshare_user');
+        localStorage.removeItem('fyrshare_auth_state');
+        localStorage.removeItem('fyrshare_user');
       }
     };
 
@@ -836,8 +836,8 @@ function AppRouter() {
       setCurrentUser(googleUserData);
       
       // Save authentication state to localStorage
-      localStorage.setItem('fairshare_auth_state', 'true');
-      localStorage.setItem('fairshare_user', JSON.stringify(googleUserData));
+      localStorage.setItem('fyrshare_auth_state', 'true');
+      localStorage.setItem('fyrshare_user', JSON.stringify(googleUserData));
       
       // Simulate API call delay
       setTimeout(() => {
@@ -955,8 +955,8 @@ function AppRouter() {
     }
     
     // Clear localStorage
-    localStorage.removeItem('fairshare_auth_state');
-    localStorage.removeItem('fairshare_user');
+    localStorage.removeItem('fyrshare_auth_state');
+    localStorage.removeItem('fyrshare_user');
     
     setIsAuthenticated(false);
     setShowLanding(true);

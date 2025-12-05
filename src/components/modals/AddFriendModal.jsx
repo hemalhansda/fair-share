@@ -98,7 +98,7 @@ const AddFriendModal = ({
             </div>
             <div className="text-sm text-blue-800">
               <p className="font-medium mb-1">How it works</p>
-              <p>Your friend will receive an invitation to join FairShare. Once they sign up with this email, you'll be connected automatically.</p>
+              <p>Your friend will receive an invitation to join fyrShare. Once they sign up with this email, you'll be connected automatically.</p>
             </div>
           </div>
         </div>

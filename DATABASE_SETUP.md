@@ -1,4 +1,4 @@
-# FairShare Database Setup Guide
+# fyrShare Database Setup Guide
 
 This project uses **Supabase** as a free PostgreSQL database with real-time capabilities and built-in authentication.
 

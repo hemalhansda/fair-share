@@ -20,7 +20,7 @@ const Sidebar = ({
     <aside className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-full">
       <div className="p-6 flex items-center gap-2 text-emerald-600">
         <PieChart className="w-8 h-8" />
-        <h1 className="text-2xl font-bold tracking-tight">FairShare</h1>
+        <h1 className="text-2xl font-bold tracking-tight">fyrShare</h1>
       </div>
       
       <nav className="flex-1 px-4 space-y-1">

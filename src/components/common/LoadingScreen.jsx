@@ -14,7 +14,7 @@ const LoadingScreen = () => (
       </div>
       
       {/* Loading Text */}
-      <h2 className="text-3xl font-bold text-gray-800 mb-4">FairShare</h2>
+      <h2 className="text-3xl font-bold text-gray-800 mb-4">fyrShare</h2>
       <p className="text-gray-600 mb-8">Making money simple</p>
       
       {/* Loading Animation */}
