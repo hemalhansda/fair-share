@@ -165,7 +165,7 @@ const GroupDetailView = ({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 scrollbar-hide overflow-y-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button 
@@ -192,7 +192,7 @@ const GroupDetailView = ({
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Group Balance</h2>
         
         {Object.values(memberContributions).filter(c => Math.abs(c.net) > 0.01).length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-3 scrollbar-hide overflow-y-auto max-h-64">
             {Object.values(memberContributions)
               .filter(contrib => Math.abs(contrib.net) > 0.01)
               .sort((a, b) => b.net - a.net) // Sort by net amount (highest debt first)
@@ -229,7 +229,7 @@ const GroupDetailView = ({
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Members ({groupMembers.length})</h2>
         
-        <div className="grid gap-3">
+        <div className="grid gap-3 scrollbar-hide overflow-y-auto max-h-64">
           {groupMembers.map(member => {
             const contrib = memberContributions[member.id] || { paid: 0, owes: 0, net: 0 };
             return (
@@ -272,7 +272,7 @@ const GroupDetailView = ({
           </Button>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-3 scrollbar-hide overflow-y-auto max-h-96">
           {groupExpenses.length > 0 ? (
             groupExpenses.map(expense => (
               <ExpenseItem 
