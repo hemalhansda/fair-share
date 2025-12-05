@@ -102,6 +102,20 @@ export async function getUserFriends(userId) {
       }
     })
 
+    // Step 1.5: Always include the current user in the users array (but not in friends list for UI)
+    // This ensures the current user data is available for group displays, etc.
+    const { data: currentUserData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single()
+    
+    // Store current user data separately - we'll add it to the final array but mark it
+    let currentUserForGroups = null
+    if (currentUserData) {
+      currentUserForGroups = currentUserData
+    }
+
     // Step 2: Get all groups the user is a member of
     const { data: userGroups, error: groupsError } = await supabase
       .from('group_members')
@@ -132,18 +146,32 @@ export async function getUserFriends(userId) {
 
       if (membersError) throw membersError
 
-      // Add unique group members (exclude current user)
+      // Add unique group members (exclude current user from friends list but keep their data available)
       groupMembers?.forEach(member => {
-        if (member.users && 
-            !friendsSet.has(member.users.id) && 
-            member.users.id !== user.id) {  // Exclude current user
-          allFriends.push(member.users)
-          friendsSet.add(member.users.id)
+        if (member.users && !friendsSet.has(member.users.id)) {
+          if (member.users.id !== user.id) {
+            // Add other users to friends list
+            allFriends.push(member.users)
+            friendsSet.add(member.users.id)
+          } else {
+            // Update current user data if found in groups
+            currentUserForGroups = member.users
+          }
         }
       })
     }
 
-    return { success: true, data: allFriends }
+    // Create final result: friends + current user data for lookups
+    // The UI will filter out current user from friends display, but group lookups will work
+    const result = [...allFriends]
+    
+    // Add current user data to the result array for group member lookups
+    // This ensures current user can be found when displaying group members
+    if (currentUserForGroups && !friendsSet.has(currentUserForGroups.id)) {
+      result.push(currentUserForGroups)
+    }
+
+    return { success: true, data: result }
   } catch (error) {
     console.error('Error fetching user friends:', error)
     return { success: false, error: error.message, data: [] }

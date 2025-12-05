@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, Plus, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
@@ -14,7 +15,15 @@ const GroupsView = ({
   onEditGroup,
   onDeleteGroup,
   userCurrency = 'USD'
-}) => (
+}) => {
+  const navigate = useNavigate();
+
+  const handleGroupClick = (group) => {
+    setSelectedGroup(group); // Still set for state management
+    navigate(`/groups/${group.id}`); // Navigate to detail view
+  };
+
+  return (
   <div className="space-y-6">
     <div className="flex justify-between items-center">
       <h2 className="text-lg font-bold text-gray-800">Groups</h2>
@@ -33,7 +42,7 @@ const GroupsView = ({
           <div className="flex items-center justify-between mb-3">
             <div 
               className="flex items-center gap-3 cursor-pointer flex-1"
-              onClick={() => setSelectedGroup(group)}
+              onClick={() => handleGroupClick(group)}
             >
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <Users className="w-6 h-6 text-blue-600" />
@@ -71,7 +80,7 @@ const GroupsView = ({
           
           <div 
             className="flex items-center justify-between cursor-pointer"
-            onClick={() => setSelectedGroup(group)}
+            onClick={() => handleGroupClick(group)}
           >
             <div className="flex -space-x-2">
               {group.members?.slice(0, 4).map(memberId => {
@@ -106,6 +115,7 @@ const GroupsView = ({
       )}
     </div>
   </div>
-);
+  );
+};
 
 export default GroupsView;

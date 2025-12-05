@@ -22,12 +22,16 @@ const AddGroupModal = ({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!groupName.trim() || selectedMembers.length === 0) return;
+    if (!groupName.trim()) return;
+
+    // Always include current user in members
+    const allMembers = currentUser ? [currentUser.id, ...selectedMembers] : selectedMembers;
+    const uniqueMembers = [...new Set(allMembers)]; // Remove duplicates
 
     const group = {
       name: groupName.trim(),
       type: groupType,
-      members: selectedMembers,
+      members: uniqueMembers,
       created_by: currentUser?.id
     };
 
@@ -87,8 +91,27 @@ const AddGroupModal = ({
             Add Members
           </label>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {users.map(user => {
-              const isCurrentUser = user.id === currentUser?.id;
+            {/* Always show current user first */}
+            {currentUser && (
+              <label className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={true}
+                  disabled={true}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                />
+                <Avatar user={currentUser} size="sm" />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-gray-800">
+                    {currentUser.name} (You)
+                  </span>
+                  <div className="text-xs text-gray-500">{currentUser.email}</div>
+                </div>
+              </label>
+            )}
+            
+            {/* Show other users (friends) */}
+            {users.filter(user => user.id !== currentUser?.id).map(user => {
               const isSelected = selectedMembers.includes(user.id);
               
               return (
@@ -101,14 +124,13 @@ const AddGroupModal = ({
                   <input
                     type="checkbox"
                     checked={isSelected}
-                    onChange={() => !isCurrentUser && toggleMember(user.id)}
-                    disabled={isCurrentUser}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
+                    onChange={() => toggleMember(user.id)}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <Avatar user={user} size="sm" />
                   <div className="flex-1">
                     <span className="text-sm font-medium text-gray-800">
-                      {user.name} {isCurrentUser && '(You)'}
+                      {user.name}
                     </span>
                     <div className="text-xs text-gray-500">{user.email}</div>
                   </div>
@@ -117,28 +139,33 @@ const AddGroupModal = ({
             })}
           </div>
           
-          {selectedMembers.length > 0 && (
+          {(selectedMembers.length > 0 || currentUser) && (
             <div className="mt-3 p-2 bg-gray-50 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">
-                Selected members ({selectedMembers.length})
+                Selected members ({selectedMembers.length + (currentUser ? 1 : 0)})
               </div>
               <div className="flex flex-wrap gap-1">
+                {/* Always show current user first */}
+                {currentUser && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                    {currentUser.name} (You)
+                  </span>
+                )}
+                {/* Show other selected members */}
                 {selectedMembers.map(userId => {
-                  const user = users.find(u => u.id === userId);
-                  return (
+                  const user = users.find(u => u.id === userId) || currentUser;
+                  return user && user.id !== currentUser?.id ? (
                     <span key={userId} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      {user?.name}
-                      {user?.id !== currentUser?.id && (
-                        <button
-                          type="button"
-                          onClick={() => toggleMember(userId)}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
+                      {user.name}
+                      <button
+                        type="button"
+                        onClick={() => toggleMember(userId)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </span>
-                  );
+                  ) : null;
                 })}
               </div>
             </div>

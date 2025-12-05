@@ -34,6 +34,7 @@ import PublicRoute from './components/auth/PublicRoute';
 import AppLayout from './components/layout/AppLayout';
 import DashboardView from './components/views/DashboardView';
 import GroupsView from './components/views/GroupsView';
+import GroupDetailView from './components/views/GroupDetailView';
 import FriendsView from './components/views/FriendsView';
 import ActivityView from './components/views/ActivityView';
 import AddExpenseModal from './components/modals/AddExpenseModal';
@@ -959,6 +960,20 @@ function AppRouter() {
                 setSelectedGroup={setSelectedGroup}
                 onEditGroup={handleShowEditGroup}
                 onDeleteGroup={handleDeleteGroup}
+                userCurrency={userPreferences.currency}
+              />
+            } 
+          />
+          <Route 
+            path="groups/:groupId" 
+            element={
+              <GroupDetailView 
+                groups={groups}
+                users={users}
+                expenses={expenses}
+                currentUser={currentUser}
+                formatMoney={formatMoney}
+                setShowAddExpense={() => setIsExpenseModalOpen(true)}
                 userCurrency={userPreferences.currency}
               />
             } 
