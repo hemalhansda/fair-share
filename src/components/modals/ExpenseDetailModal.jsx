@@ -429,12 +429,15 @@ const ExpenseDetailModal = ({
                 className="text-sm text-gray-800 bg-white border border-gray-300 rounded px-2 py-1 focus:border-blue-500 outline-none"
               >
                 <option value="General">General</option>
-                <option value="Food">Food</option>
+                <option value="Food">Food & Dining</option>
                 <option value="Transportation">Transportation</option>
                 <option value="Entertainment">Entertainment</option>
                 <option value="Shopping">Shopping</option>
-                <option value="Bills">Bills</option>
+                <option value="Bills">Bills & Utilities</option>
                 <option value="Travel">Travel</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Education">Education</option>
+                <option value="Groceries">Groceries</option>
                 <option value="Other">Other</option>
               </select>
             ) : (

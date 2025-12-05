@@ -23,6 +23,7 @@ const AddExpenseModal = ({
   const [splitMethod, setSplitMethod] = useState('equal');
   const [customSplits, setCustomSplits] = useState({});
   const [customSplitType, setCustomSplitType] = useState('amount'); // 'amount' or 'percentage'
+  const [category, setCategory] = useState('General'); // Default category
   const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]); // Today's date
   const [expenseTime, setExpenseTime] = useState(new Date().toTimeString().slice(0, 5)); // Current time
 
@@ -78,6 +79,7 @@ const AddExpenseModal = ({
       split_method: splitMethod,
       custom_splits: splitMethod === 'custom' ? finalSplits : null,
       custom_split_type: splitMethod === 'custom' ? customSplitType : null,
+      category: category,
       date: expenseDateTime.toISOString() // Store as ISO string
     };
 
@@ -95,6 +97,7 @@ const AddExpenseModal = ({
     setSplitMethod('equal');
     setCustomSplits({});
     setCustomSplitType('amount');
+    setCategory('General');
     setExpenseDate(new Date().toISOString().split('T')[0]);
     setExpenseTime(new Date().toTimeString().slice(0, 5));
     onClose();
@@ -210,6 +213,30 @@ const AddExpenseModal = ({
               ))}
             </select>
           </div>
+        </div>
+
+        {/* Category Field */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Category
+          </label>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="General">General</option>
+            <option value="Food">Food & Dining</option>
+            <option value="Transportation">Transportation</option>
+            <option value="Entertainment">Entertainment</option>
+            <option value="Shopping">Shopping</option>
+            <option value="Bills">Bills & Utilities</option>
+            <option value="Travel">Travel</option>
+            <option value="Healthcare">Healthcare</option>
+            <option value="Education">Education</option>
+            <option value="Groceries">Groceries</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
 
         {/* Date and Time Fields */}
