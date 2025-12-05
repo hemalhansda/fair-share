@@ -516,14 +516,19 @@ export async function deleteGroup(groupId) {
 
 export async function createExpense(expenseData) {
   try {
+    // Handle both old and new data formats
+    const paidById = expenseData.paid_by || expenseData.paidBy;
+    const splitWith = expenseData.split_with || expenseData.splitBetween || [];
+    const groupId = expenseData.group_id || expenseData.groupId;
+    
     // Convert payer ID to UUID if needed
-    let payerUuid = expenseData.paidBy
-    if (typeof expenseData.paidBy === 'string' && expenseData.paidBy.length > 36) {
+    let payerUuid = paidById
+    if (typeof paidById === 'string' && paidById.length > 36) {
       // This looks like a Google ID, convert to UUID
       const { data: payerUser } = await supabase
         .from('users')
         .select('id')
-        .eq('google_id', expenseData.paidBy)
+        .eq('google_id', paidById)
         .single()
       
       if (!payerUser) {
@@ -532,46 +537,73 @@ export async function createExpense(expenseData) {
       payerUuid = payerUser.id
     }
 
-    // Create the expense
+    // Create the expense (without currency column for now)
     const { data: expense, error: expenseError } = await supabase
       .from('expenses')
       .insert([{
         description: expenseData.description,
         amount: expenseData.amount,
-        currency: expenseData.currency || 'USD',
+        // currency: expenseData.currency || 'USD', // TODO: Add currency column to database
         paid_by: payerUuid,
-        group_id: expenseData.groupId,
-        category: expenseData.category
+        group_id: groupId,
+        category: expenseData.category || 'General'
       }])
       .select()
       .single()
 
     if (expenseError) throw expenseError
 
-    // Convert split user IDs to UUIDs and create expense splits
-    const splitAmount = expenseData.amount / expenseData.splitBetween.length
+    // Handle custom splits or equal splits
     const splitInserts = []
     
-    for (const userId of expenseData.splitBetween) {
-      let userUuid = userId
-      if (typeof userId === 'string' && userId.length > 36) {
-        // This looks like a Google ID, convert to UUID
-        const { data: splitUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('google_id', userId)
-          .single()
-        
-        if (splitUser) {
-          userUuid = splitUser.id
+    if (expenseData.split_method === 'custom' && expenseData.custom_splits) {
+      // Use custom split amounts
+      for (const [userId, amount] of Object.entries(expenseData.custom_splits)) {
+        let userUuid = userId
+        if (typeof userId === 'string' && userId.length > 36) {
+          // Convert Google ID to UUID
+          const { data: splitUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('google_id', userId)
+            .single()
+          
+          if (splitUser) {
+            userUuid = splitUser.id
+          }
         }
+        
+        splitInserts.push({
+          expense_id: expense.id,
+          user_id: userUuid,
+          amount: parseFloat(amount)
+        })
       }
+    } else {
+      // Equal split among all members
+      const splitAmount = expenseData.amount / splitWith.length
       
-      splitInserts.push({
-        expense_id: expense.id,
-        user_id: userUuid,
-        amount: splitAmount
-      })
+      for (const userId of splitWith) {
+        let userUuid = userId
+        if (typeof userId === 'string' && userId.length > 36) {
+          // This looks like a Google ID, convert to UUID
+          const { data: splitUser } = await supabase
+            .from('users')
+            .select('id')
+            .eq('google_id', userId)
+            .single()
+          
+          if (splitUser) {
+            userUuid = splitUser.id
+          }
+        }
+        
+        splitInserts.push({
+          expense_id: expense.id,
+          user_id: userUuid,
+          amount: splitAmount
+        })
+      }
     }
 
     const { error: splitsError } = await supabase
@@ -638,7 +670,7 @@ export async function getUserExpenses(userId) {
         )
       `)
       .eq('paid_by', user.id)
-      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (paidError) throw paidError
 
@@ -672,7 +704,7 @@ export async function getUserExpenses(userId) {
         )
       `)
       .eq('expense_splits.user_id', user.id)
-      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (splitError) throw splitError
 
@@ -694,15 +726,17 @@ export async function getUserExpenses(userId) {
       description: expense.description,
       amount: parseFloat(expense.amount),
       currency: expense.currency || 'USD',
-      date: expense.date,
-      paidBy: expense.paid_by,
-      groupId: expense.group_id,
-      splitBetween: expense.expense_splits?.map(split => split.user_id) || [],
+      created_at: expense.created_at,
+      paid_by: expense.paid_by,
+      group_id: expense.group_id,
+      paid_by_user: expense.paid_by_user,
+      expense_splits: expense.expense_splits,
+      groups: expense.groups,
       category: expense.category
     }))
 
-    // Sort by date
-    transformedExpenses.sort((a, b) => new Date(b.date) - new Date(a.date))
+    // Sort by created_at
+    transformedExpenses.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 
     return { success: true, data: transformedExpenses }
   } catch (error) {

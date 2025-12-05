@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { 
   Users, 
   UserPlus, 
@@ -79,7 +79,40 @@ import { convertCurrency, formatCurrency, CURRENCIES } from './services/currency
 // --- Utility Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-// --- Utility Functions ---
+// Wrapper component to handle group context for expense modal
+const ExpenseModalWrapper = ({ 
+  isExpenseModalOpen, 
+  setIsExpenseModalOpen, 
+  users, 
+  currentUser, 
+  groups, 
+  handleAddExpense, 
+  selectedGroup 
+}) => {
+  const location = useLocation();
+  
+  // Determine if we're in a group detail view and get the group
+  const currentGroup = useMemo(() => {
+    const groupIdMatch = location.pathname.match(/\/groups\/([^\/]+)$/);
+    if (groupIdMatch) {
+      const groupId = groupIdMatch[1];
+      return groups.find(g => g.id === groupId) || null;
+    }
+    return selectedGroup;
+  }, [location.pathname, groups, selectedGroup]);
+
+  return (
+    <AddExpenseModal
+      isOpen={isExpenseModalOpen}
+      onClose={() => setIsExpenseModalOpen(false)}
+      users={users}
+      currentUser={currentUser}
+      groups={groups}
+      onAddExpense={handleAddExpense}
+      selectedGroup={currentGroup}
+    />
+  );
+};
 
 // --- Main Application Components ---
 
@@ -1019,13 +1052,14 @@ function AppRouter() {
       </Routes>
 
       {/* Global Modals */}
-      <AddExpenseModal
-        isOpen={isExpenseModalOpen}
-        onClose={() => setIsExpenseModalOpen(false)}
+      <ExpenseModalWrapper
+        isExpenseModalOpen={isExpenseModalOpen}
+        setIsExpenseModalOpen={setIsExpenseModalOpen}
         users={users}
         currentUser={currentUser}
         groups={groups}
-        onAddExpense={handleAddExpense}
+        handleAddExpense={handleAddExpense}
+        selectedGroup={selectedGroup}
       />
 
       <AddGroupModal
