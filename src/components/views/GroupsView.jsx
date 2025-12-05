@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Plus, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
+import { GroupSkeleton } from '../ui/SkeletonLoader';
 import { formatCurrency } from '../../services/currency';
 
 const GroupsView = ({ 
@@ -14,7 +15,8 @@ const GroupsView = ({
   setSelectedGroup,
   onEditGroup,
   onDeleteGroup,
-  userCurrency = 'USD'
+  userCurrency = 'USD',
+  isDataLoading = false
 }) => {
   const navigate = useNavigate();
 
@@ -34,7 +36,12 @@ const GroupsView = ({
     </div>
     
     <div className="grid gap-4">
-      {groups.map(group => (
+      {isDataLoading ? (
+        Array.from({ length: 3 }).map((_, i) => (
+          <GroupSkeleton key={i} />
+        ))
+      ) : (
+        groups.map(group => (
         <div 
           key={group.id} 
           className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all group"
@@ -104,9 +111,10 @@ const GroupsView = ({
             </div>
           </div>
         </div>
-      ))}
+        ))
+      )}
       
-      {groups.length === 0 && (
+      {!isDataLoading && groups.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
           <p className="text-lg font-medium mb-2">No groups yet</p>

@@ -5,6 +5,7 @@ import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import ExpenseItem from '../expenses/ExpenseItem';
 import ExpenseDetailModal from '../modals/ExpenseDetailModal';
+import { DashboardSkeleton, ExpenseSkeleton } from '../ui/SkeletonLoader';
 import { formatCurrency } from '../../services/currency';
 
 const DashboardView = ({ 
@@ -14,13 +15,18 @@ const DashboardView = ({
   handleSettleUp, 
   expenses,
   userCurrency = 'USD',
-  currentUser
+  currentUser,
+  isDataLoading = false
 }) => {
   const navigate = useNavigate();
   
   // State for expense detail modal
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [showExpenseDetail, setShowExpenseDetail] = useState(false);
+
+  if (isDataLoading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
   <div className="space-y-6">

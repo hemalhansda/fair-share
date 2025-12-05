@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock } from 'lucide-react';
 import ExpenseItem from '../expenses/ExpenseItem';
 import ExpenseDetailModal from '../modals/ExpenseDetailModal';
+import { ActivitySkeleton } from '../ui/SkeletonLoader';
 
 const ActivityView = ({ 
   expenses, 
@@ -21,8 +22,8 @@ const ActivityView = ({
     
     {isLoading ? (
       <div className="space-y-3">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="bg-gray-100 h-16 rounded-xl animate-pulse" />
+        {Array.from({ length: 5 }).map((_, i) => (
+          <ActivitySkeleton key={i} />
         ))}
       </div>
     ) : (

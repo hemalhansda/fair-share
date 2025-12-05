@@ -1000,6 +1000,7 @@ function AppRouter() {
                 expenses={expenses}
                 userCurrency={userPreferences.currency}
                 currentUser={currentUser}
+                isDataLoading={isDataLoading}
               />
             } 
           />
@@ -1016,6 +1017,7 @@ function AppRouter() {
                 onEditGroup={handleShowEditGroup}
                 onDeleteGroup={handleDeleteGroup}
                 userCurrency={userPreferences.currency}
+                isDataLoading={isDataLoading}
               />
             } 
           />
@@ -1046,6 +1048,7 @@ function AppRouter() {
                 onEditUser={handleShowEditUser}
                 onDeleteUser={handleDeleteUser}
                 userCurrency={userPreferences.currency}
+                isDataLoading={isDataLoading}
               />
             } 
           />
