@@ -944,8 +944,53 @@ function AppRouter() {
 
   // Helper functions for group calculations
   const getGroupBalance = (groupId) => {
+    if (!currentUser?.id || !expenses || expenses.length === 0) return 0;
+    
+    // Filter expenses for this specific group
     const groupExpenses = expenses.filter(e => e.group_id === groupId);
-    return calculateBalances(groupExpenses, currentUser?.id, users).totalOwed - calculateBalances(groupExpenses, currentUser?.id, users).totalOwes;
+    
+    if (groupExpenses.length === 0) return 0;
+    
+    try {
+      // Calculate what the current user paid and owes for this specific group
+      let totalPaid = 0;
+      let totalOwes = 0;
+      
+      groupExpenses.forEach(expense => {
+        // Add to what current user paid
+        if (expense.paid_by === currentUser.id) {
+          totalPaid += expense.amount;
+        }
+        
+        // Add to what current user owes
+        if (expense.expense_splits) {
+          const userSplit = expense.expense_splits.find(split => split.user_id === currentUser.id);
+          if (userSplit) {
+            totalOwes += expense.amount / expense.expense_splits.length;
+          }
+        } else if (expense.split_with && expense.split_with.includes(currentUser.id)) {
+          // Fallback for old split_with format
+          totalOwes += expense.amount / expense.split_with.length;
+        }
+      });
+      
+      // Return net balance (negative = you owe, positive = you are owed)
+      const netBalance = totalPaid - totalOwes;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Group ${groupId} balance calculation:`, {
+          expenses: groupExpenses.length,
+          totalPaid,
+          totalOwes,
+          netBalance
+        });
+      }
+      
+      return netBalance;
+    } catch (error) {
+      console.error('Error calculating group balance:', error);
+      return 0;
+    }
   };
 
   // Show loading screen during initial app load

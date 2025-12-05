@@ -976,7 +976,12 @@ export function calculateBalances(expenses, currentUserId, users) {
   let userOwes = 0
   const debts = {} // userId -> amount (positive = they owe you, negative = you owe them)
 
-  expenses.forEach(expense => {
+  // Debug logging
+  if (process.env.NODE_ENV === 'development' && expenses.length > 0) {
+    console.log(`calculateBalances: Processing ${expenses.length} expenses for user ${currentUserId}`);
+  }
+
+  expenses.forEach((expense, index) => {
     // Handle both old and new data formats
     const paidById = expense.paid_by || expense.paidBy;
     
@@ -986,10 +991,28 @@ export function calculateBalances(expenses, currentUserId, users) {
       splitBetween = expense.expense_splits.map(split => split.user_id);
     } else {
       // Fallback to old format
-      splitBetween = expense.split_between || expense.splitBetween || [];
+      splitBetween = expense.split_between || expense.splitBetween || expense.split_with || [];
     }
     
-    if (splitBetween.length === 0) return; // Skip if no splits
+    // Debug logging for each expense
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Expense ${index + 1}:`, {
+        description: expense.description,
+        amount: expense.amount,
+        paidById,
+        splitBetween,
+        currentUserId,
+        userIsPayer: paidById === currentUserId,
+        userInSplit: splitBetween.includes(currentUserId)
+      });
+    }
+    
+    if (splitBetween.length === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Skipping expense ${expense.description} - no split data`);
+      }
+      return; // Skip if no splits
+    }
     
     const splitAmount = expense.amount / splitBetween.length;
 
@@ -1011,6 +1034,16 @@ export function calculateBalances(expenses, currentUserId, users) {
     if (amount > 0) owedToUser += amount
     if (amount < 0) userOwes += Math.abs(amount)
   })
+
+  // Debug final result
+  if (process.env.NODE_ENV === 'development' && expenses.length > 0) {
+    console.log(`calculateBalances result:`, {
+      totalOwed: owedToUser,
+      totalOwes: userOwes,
+      debts,
+      currentUserId
+    });
+  }
 
   return { totalOwed: owedToUser, totalOwes: userOwes, details: debts }
 }
