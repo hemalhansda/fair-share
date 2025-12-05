@@ -33,6 +33,12 @@ const ExpenseDetailModal = ({
         customSplits[split.user_id] = parseFloat(split.amount) || 0;
       });
       
+      // Parse existing date or use current date/time
+      const existingDate = expense.created_at || expense.date || new Date().toISOString();
+      const dateObj = new Date(existingDate);
+      const dateStr = dateObj.toISOString().split('T')[0];
+      const timeStr = dateObj.toTimeString().slice(0, 5);
+      
       setEditedExpense({
         description: expense.description,
         amount: expense.amount,
@@ -41,7 +47,9 @@ const ExpenseDetailModal = ({
         category: expense.category || 'General',
         split_with: splitWith,
         split_method: 'equal', // Default to equal split
-        custom_splits: customSplits
+        custom_splits: customSplits,
+        date: dateStr,
+        time: timeStr
       });
       setIsEditing(false);
     }
@@ -182,7 +190,14 @@ const ExpenseDetailModal = ({
 
     setIsLoading(true);
     try {
-      const result = await updateExpense(expense.id, editedExpense);
+      // Create datetime from date and time inputs
+      const expenseDateTime = new Date(`${editedExpense.date}T${editedExpense.time}`);
+      const updatedExpenseData = {
+        ...editedExpense,
+        date: expenseDateTime.toISOString() // Store as ISO string
+      };
+      
+      const result = await updateExpense(expense.id, updatedExpenseData);
       
       if (result.success) {
         setIsEditing(false);
@@ -210,6 +225,12 @@ const ExpenseDetailModal = ({
       customSplits[split.user_id] = parseFloat(split.amount) || 0;
     });
     
+    // Parse existing date or use current date/time
+    const existingDate = expense.created_at || expense.date || new Date().toISOString();
+    const dateObj = new Date(existingDate);
+    const dateStr = dateObj.toISOString().split('T')[0];
+    const timeStr = dateObj.toTimeString().slice(0, 5);
+    
     setEditedExpense({
       description: expense.description,
       amount: expense.amount,
@@ -218,7 +239,9 @@ const ExpenseDetailModal = ({
       category: expense.category || 'General',
       split_with: splitWith,
       split_method: 'equal',
-      custom_splits: customSplits
+      custom_splits: customSplits,
+      date: dateStr,
+      time: timeStr
     });
     setIsEditing(false);
   };
@@ -368,9 +391,26 @@ const ExpenseDetailModal = ({
               <Calendar className="w-4 h-4" />
               Date & Time
             </div>
-            <div className="text-sm text-gray-800">
-              {formatDate(expenseDate)}
-            </div>
+            {isEditing ? (
+              <div className="space-y-2">
+                <input
+                  type="date"
+                  value={editedExpense?.date || ''}
+                  onChange={(e) => handleChange('date', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 outline-none"
+                />
+                <input
+                  type="time"
+                  value={editedExpense?.time || ''}
+                  onChange={(e) => handleChange('time', e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 outline-none"
+                />
+              </div>
+            ) : (
+              <div className="text-sm text-gray-800">
+                {formatDate(expenseDate)}
+              </div>
+            )}
           </div>
         </div>
 

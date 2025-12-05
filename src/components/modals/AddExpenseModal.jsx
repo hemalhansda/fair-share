@@ -23,6 +23,8 @@ const AddExpenseModal = ({
   const [splitMethod, setSplitMethod] = useState('equal');
   const [customSplits, setCustomSplits] = useState({});
   const [customSplitType, setCustomSplitType] = useState('amount'); // 'amount' or 'percentage'
+  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]); // Today's date
+  const [expenseTime, setExpenseTime] = useState(new Date().toTimeString().slice(0, 5)); // Current time
 
   // Update groupId when selectedGroup changes or modal opens
   React.useEffect(() => {
@@ -63,6 +65,9 @@ const AddExpenseModal = ({
       });
     }
 
+    // Create datetime from date and time inputs
+    const expenseDateTime = new Date(`${expenseDate}T${expenseTime}`);
+    
     const expense = {
       description: description.trim(),
       amount: parseFloat(amount),
@@ -72,7 +77,8 @@ const AddExpenseModal = ({
       split_with: splitWith,
       split_method: splitMethod,
       custom_splits: splitMethod === 'custom' ? finalSplits : null,
-      custom_split_type: splitMethod === 'custom' ? customSplitType : null
+      custom_split_type: splitMethod === 'custom' ? customSplitType : null,
+      date: expenseDateTime.toISOString() // Store as ISO string
     };
 
     onAddExpense(expense);
@@ -85,10 +91,12 @@ const AddExpenseModal = ({
     setCurrency('USD');
     setPaidBy(currentUser?.id || '');
     setSplitWith([]);
-    setGroupId(selectedGroup?.id || '');
+    setGroupId('');
     setSplitMethod('equal');
     setCustomSplits({});
     setCustomSplitType('amount');
+    setExpenseDate(new Date().toISOString().split('T')[0]);
+    setExpenseTime(new Date().toTimeString().slice(0, 5));
     onClose();
   };
 
@@ -201,6 +209,35 @@ const AddExpenseModal = ({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        {/* Date and Time Fields */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Date
+            </label>
+            <input
+              type="date"
+              value={expenseDate}
+              onChange={(e) => setExpenseDate(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Time
+            </label>
+            <input
+              type="time"
+              value={expenseTime}
+              onChange={(e) => setExpenseTime(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              required
+            />
           </div>
         </div>
 

@@ -546,16 +546,23 @@ export async function createExpense(expenseData) {
     }
 
     // Create the expense (without currency column for now)
+    const insertData = {
+      description: expenseData.description,
+      amount: expenseData.amount,
+      // currency: expenseData.currency || 'USD', // TODO: Add currency column to database
+      paid_by: payerUuid,
+      group_id: groupId,
+      category: expenseData.category || 'General'
+    };
+
+    // Add date if provided, otherwise let database use default timestamp
+    if (expenseData.date) {
+      insertData.created_at = expenseData.date;
+    }
+
     const { data: expense, error: expenseError } = await supabase
       .from('expenses')
-      .insert([{
-        description: expenseData.description,
-        amount: expenseData.amount,
-        // currency: expenseData.currency || 'USD', // TODO: Add currency column to database
-        paid_by: payerUuid,
-        group_id: groupId,
-        category: expenseData.category || 'General'
-      }])
+      .insert([insertData])
       .select()
       .single()
 
@@ -675,15 +682,22 @@ export async function updateExpense(expenseId, expenseData) {
     }
 
     // Update the expense
+    const updateData = {
+      description: expenseData.description,
+      amount: expenseData.amount,
+      paid_by: payerUuid,
+      group_id: groupId,
+      category: expenseData.category || 'General'
+    };
+
+    // Add date if provided
+    if (expenseData.date) {
+      updateData.created_at = expenseData.date;
+    }
+
     const { data: expense, error: expenseError } = await supabase
       .from('expenses')
-      .update({
-        description: expenseData.description,
-        amount: expenseData.amount,
-        paid_by: payerUuid,
-        group_id: groupId,
-        category: expenseData.category || 'General'
-      })
+      .update(updateData)
       .eq('id', expenseId)
       .select()
       .single()
