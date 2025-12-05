@@ -82,7 +82,27 @@ export async function getUserFriends(userId) {
       return { success: true, data: [] }
     }
 
-    // Step 1: Get all groups the user is a member of
+    let allFriends = []
+    const friendsSet = new Set()
+
+    // Step 1: Get all users that were added as friends (users without google_id)
+    // These are users created when adding friends manually
+    const { data: addedFriends, error: friendsError } = await supabase
+      .from('users')
+      .select('*')
+      .is('google_id', null) // Users added as friends have null google_id
+
+    if (friendsError) throw friendsError
+
+    // Add all manually added friends
+    addedFriends?.forEach(friend => {
+      if (!friendsSet.has(friend.id)) {
+        allFriends.push(friend)
+        friendsSet.add(friend.id)
+      }
+    })
+
+    // Step 2: Get all groups the user is a member of
     const { data: userGroups, error: groupsError } = await supabase
       .from('group_members')
       .select('group_id')
@@ -92,22 +112,7 @@ export async function getUserFriends(userId) {
 
     const userGroupIds = userGroups?.map(g => g.group_id) || []
 
-    // Step 2: Get all users in those groups (if user has any groups)
-    let allFriends = []
-    const friendsSet = new Set()
-
-    // Always include the current user first
-    const { data: currentUserData } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-    
-    if (currentUserData) {
-      allFriends.push(currentUserData)
-      friendsSet.add(currentUserData.id)
-    }
-
+    // Step 3: Get all users in those groups (if user has any groups)
     if (userGroupIds.length > 0) {
       // Get all members from user's groups
       const { data: groupMembers, error: membersError } = await supabase
@@ -127,9 +132,11 @@ export async function getUserFriends(userId) {
 
       if (membersError) throw membersError
 
-      // Add unique group members
+      // Add unique group members (exclude current user)
       groupMembers?.forEach(member => {
-        if (member.users && !friendsSet.has(member.users.id)) {
+        if (member.users && 
+            !friendsSet.has(member.users.id) && 
+            member.users.id !== user.id) {  // Exclude current user
           allFriends.push(member.users)
           friendsSet.add(member.users.id)
         }
@@ -173,30 +180,19 @@ export async function addFriend(friendData, currentUserId) {
       friendUser = data
     }
 
-    // Now create a friend relationship (if it doesn't exist)
-    const { data: currentUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('google_id', currentUserId)
-      .single()
-
-    if (currentUser) {
-      // Create bidirectional friendship
-      const { error: friendshipError } = await supabase
-        .from('friendships')
-        .upsert([
-          { user_id: currentUser.id, friend_id: friendUser.id },
-          { user_id: friendUser.id, friend_id: currentUser.id }
-        ], { onConflict: 'user_id,friend_id' })
-
-      if (friendshipError && !friendshipError.message.includes('duplicate')) {
-        console.error('Friendship creation error:', friendshipError)
-      }
-    }
+    // TODO: Create friendship relationship when friendships table is available
+    // For now, friends are managed through shared groups and expenses
+    console.log('Friend added successfully:', friendUser)
 
     return { success: true, data: friendUser }
   } catch (error) {
     console.error('Error adding friend:', error)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      hint: error.hint,
+      details: error.details
+    })
     return { success: false, error: error.message }
   }
 }
@@ -289,23 +285,42 @@ export async function createGroup(groupData, currentUserId) {
     const memberUuids = []
     const processedMembers = new Set() // Track processed members to avoid duplicates
     
+    // Always include the current user first
+    memberUuids.push(user.id)
+    processedMembers.add(user.id)
+    
+    // Process other members
     for (const memberId of groupData.members) {
+      if (memberId === currentUserId || processedMembers.has(memberId)) {
+        continue // Skip current user (already added) and duplicates
+      }
+      
       let finalUuid = null
       
-      if (memberId === currentUserId) {
-        // Current user - use the UUID we already have
-        finalUuid = user.id
-      } else {
-        // Other members - look up their UUIDs
-        const { data: memberUser } = await supabase
+      // Try to find the user by UUID first, then by google_id
+      let { data: memberUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', memberId)
+        .maybeSingle()
+      
+      if (!memberUser) {
+        // Try by google_id if UUID lookup failed
+        const { data: memberByGoogleId } = await supabase
           .from('users')
           .select('id')
-          .eq('id', memberId)  // Assuming other members are already UUIDs from friends
-          .single()
+          .eq('google_id', memberId)
+          .maybeSingle()
         
-        if (memberUser) {
-          finalUuid = memberUser.id
+        if (memberByGoogleId) {
+          memberUser = memberByGoogleId
         }
+      }
+      
+      if (memberUser) {
+        finalUuid = memberUser.id
+      } else {
+        console.warn(`Could not find user with ID: ${memberId}`)
       }
       
       // Only add if we haven't processed this UUID yet
@@ -314,6 +329,8 @@ export async function createGroup(groupData, currentUserId) {
         processedMembers.add(finalUuid)
       }
     }
+    
+    console.log('Group members to add:', memberUuids.length)
 
     const memberInserts = memberUuids.map(memberId => ({
       group_id: group.id,
@@ -329,6 +346,12 @@ export async function createGroup(groupData, currentUserId) {
     return { success: true, data: group }
   } catch (error) {
     console.error('Error creating group:', error)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      hint: error.hint,
+      details: error.details
+    })
     return { success: false, error: error.message }
   }
 }
@@ -719,9 +742,19 @@ export function calculateBalances(expenses, currentUserId, users) {
   expenses.forEach(expense => {
     // Handle both old and new data formats
     const paidById = expense.paid_by || expense.paidBy;
-    const splitBetween = expense.split_between || expense.splitBetween || [];
     
-    const splitAmount = expense.amount / splitBetween.length
+    // Handle new database structure with expense_splits
+    let splitBetween = [];
+    if (expense.expense_splits && Array.isArray(expense.expense_splits)) {
+      splitBetween = expense.expense_splits.map(split => split.user_id);
+    } else {
+      // Fallback to old format
+      splitBetween = expense.split_between || expense.splitBetween || [];
+    }
+    
+    if (splitBetween.length === 0) return; // Skip if no splits
+    
+    const splitAmount = expense.amount / splitBetween.length;
 
     if (paidById === currentUserId) {
       // You paid, others owe you

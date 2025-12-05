@@ -12,7 +12,13 @@ const AddGroupModal = ({
   onAddGroup 
 }) => {
   const [groupName, setGroupName] = useState('');
+  const [groupType, setGroupType] = useState('General');
   const [selectedMembers, setSelectedMembers] = useState([currentUser?.id || '']);
+
+  const groupTypes = [
+    'Trip', 'Home', 'General', 'Entertainment', 
+    'Food & Dining', 'Transportation', 'Shopping'
+  ];
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -20,6 +26,7 @@ const AddGroupModal = ({
 
     const group = {
       name: groupName.trim(),
+      type: groupType,
       members: selectedMembers,
       created_by: currentUser?.id
     };
@@ -30,6 +37,7 @@ const AddGroupModal = ({
 
   const handleClose = () => {
     setGroupName('');
+    setGroupType('General');
     setSelectedMembers([currentUser?.id || '']);
     onClose();
   };
@@ -57,6 +65,21 @@ const AddGroupModal = ({
             placeholder="Enter group name"
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Type
+          </label>
+          <select
+            value={groupType}
+            onChange={(e) => setGroupType(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {groupTypes.map(type => (
+              <option key={type} value={type}>{type}</option>
+            ))}
+          </select>
         </div>
 
         <div>

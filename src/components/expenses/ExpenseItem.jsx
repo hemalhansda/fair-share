@@ -9,7 +9,14 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 
   const expenseDate = expense.created_at || expense.date;
   const groupId = expense.group_id || expense.groupId;
   
-  const paidByUser = users?.find(u => u.id === paidById) || { name: 'Unknown User', id: paidById };
+  // Try to get user from embedded data first, then fallback to users array
+  let paidByUser;
+  if (expense.paid_by_user) {
+    paidByUser = expense.paid_by_user;
+  } else {
+    paidByUser = users?.find(u => u.id === paidById) || { name: 'Unknown User', id: paidById };
+  }
+  
   const isUserPaidBy = paidById === currentUser?.id;
   
   return (
@@ -24,11 +31,11 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 
             <h3 className="font-semibold text-gray-800 truncate">{expense.description}</h3>
             <div className="text-right flex-shrink-0 ml-2">
               <div className="font-bold text-gray-800">
-                {formatCurrency(expense.amount, expense.currency || 'USD')}
+                {formatCurrency(expense.amount, userCurrency)}
               </div>
               {expense.currency && expense.currency !== userCurrency && (
                 <div className="text-xs text-gray-500">
-                  ({expense.currency})
+                  (Originally {formatCurrency(expense.amount, expense.currency || 'USD')})
                 </div>
               )}
             </div>

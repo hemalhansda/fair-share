@@ -356,11 +356,61 @@ function AppRouter() {
   // --- Logic & Calculations ---
 
   // Calculate debts for the current user (in their preferred currency)
-  const balances = useMemo(() => {
-    if (!currentUser) return { totalOwed: 0, totalOwes: 0, details: {} };
-    // Note: For now, using original calculation. In production, you'd want to
-    // convert all expense amounts to user's preferred currency before calculating
-    return calculateBalances(expenses, currentUser.id, users);
+  const [balances, setBalances] = useState({ totalOwed: 0, totalOwes: 0, details: {} });
+
+  // Calculate balances with currency conversion
+  useEffect(() => {
+    const calculateBalancesWithCurrency = async () => {
+      if (!currentUser) {
+        setBalances({ totalOwed: 0, totalOwes: 0, details: {} });
+        return;
+      }
+
+      // If no expenses, balances are zero but this is normal
+      if (expenses.length === 0) {
+        console.log('No expenses found - balances will be zero');
+        setBalances({ totalOwed: 0, totalOwes: 0, details: {} });
+        return;
+      }
+
+      try {
+        console.log(`Calculating balances for ${expenses.length} expenses`);
+        const userCurrency = userPreferences.currency || 'USD';
+        const convertedExpenses = [];
+
+        // Convert all expenses to user's preferred currency
+        for (const expense of expenses) {
+          const expenseCurrency = expense.currency || 'USD';
+          
+          if (expenseCurrency === userCurrency) {
+            convertedExpenses.push(expense);
+          } else {
+            const { success, amount: convertedAmount } = await convertCurrency(
+              expense.amount, 
+              expenseCurrency, 
+              userCurrency
+            );
+            
+            convertedExpenses.push({
+              ...expense,
+              amount: success ? convertedAmount : expense.amount,
+              currency: userCurrency
+            });
+          }
+        }
+
+        // Calculate balances with converted amounts
+        const newBalances = calculateBalances(convertedExpenses, currentUser.id, users);
+        console.log('Calculated balances:', newBalances);
+        setBalances(newBalances);
+      } catch (error) {
+        console.error('Error calculating balances with currency conversion:', error);
+        // Fallback to original calculation
+        setBalances(calculateBalances(expenses, currentUser.id, users));
+      }
+    };
+
+    calculateBalancesWithCurrency();
   }, [expenses, currentUser?.id, users, userPreferences.currency]);
 
   // Format currency with conversion to user's preferred currency
