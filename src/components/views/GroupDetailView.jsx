@@ -1,10 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { ArrowLeft, Users, Plus, Receipt } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import ExpenseItem from '../expenses/ExpenseItem';
-import { formatCurrency } from '../../services/currency';
+import { formatCurrency, convertCurrency } from '../../services/currency';
 import { calculateBalances } from '../../services/database';
 
 const GroupDetailView = ({ 
@@ -41,53 +41,109 @@ const GroupDetailView = ({
     });
   }, [group?.members, users, currentUser]);
 
-  // Calculate balances for this group only
-  const groupBalances = useMemo(() => {
-    if (!currentUser || groupExpenses.length === 0) {
-      return { totalOwed: 0, totalOwes: 0, details: {} };
-    }
-    return calculateBalances(groupExpenses, currentUser.id, users);
-  }, [groupExpenses, currentUser?.id, users]);
+  // Calculate balances for this group only with currency conversion
+  const [groupBalances, setGroupBalances] = useState({ totalOwed: 0, totalOwes: 0, details: {} });
 
-  // Calculate individual member contributions
-  const memberContributions = useMemo(() => {
-    const contributions = {};
-    
-    // Initialize all members with 0
-    groupMembers.forEach(member => {
-      contributions[member.id] = {
-        user: member,
-        paid: 0,
-        owes: 0,
-        net: 0
-      };
-    });
-
-    // Calculate what each member paid and owes
-    groupExpenses.forEach(expense => {
-      const paidById = expense.paid_by;
-      const splitAmount = expense.amount / (expense.expense_splits?.length || 1);
-
-      // Add to what this person paid
-      if (contributions[paidById]) {
-        contributions[paidById].paid += expense.amount;
+  useEffect(() => {
+    const calculateGroupBalances = async () => {
+      if (!currentUser || groupExpenses.length === 0) {
+        setGroupBalances({ totalOwed: 0, totalOwes: 0, details: {} });
+        return;
       }
 
-      // Add to what each person in the split owes
-      expense.expense_splits?.forEach(split => {
-        if (contributions[split.user_id]) {
-          contributions[split.user_id].owes += splitAmount;
+      // Convert all expenses to user's preferred currency before calculating balances
+      const convertedExpenses = [];
+      for (const expense of groupExpenses) {
+        const expenseCurrency = expense.currency || 'USD';
+        let convertedAmount = expense.amount;
+
+        if (expenseCurrency !== userCurrency) {
+          try {
+            const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, userCurrency);
+            if (success) {
+              convertedAmount = amount;
+            }
+          } catch (error) {
+            console.error('Currency conversion failed for balance calculation:', error);
+          }
         }
+
+        convertedExpenses.push({
+          ...expense,
+          amount: convertedAmount,
+          currency: userCurrency
+        });
+      }
+
+      const balances = calculateBalances(convertedExpenses, currentUser.id, users);
+      setGroupBalances(balances);
+    };
+
+    calculateGroupBalances();
+  }, [groupExpenses, currentUser?.id, users, userCurrency]);
+
+  // Calculate individual member contributions with currency conversion
+  const [memberContributions, setMemberContributions] = useState({});
+
+  useEffect(() => {
+    const calculateContributions = async () => {
+      const contributions = {};
+      
+      // Initialize all members with 0
+      groupMembers.forEach(member => {
+        contributions[member.id] = {
+          user: member,
+          paid: 0,
+          owes: 0,
+          net: 0
+        };
       });
-    });
 
-    // Calculate net amounts (positive = they owe the group, negative = group owes them)
-    Object.values(contributions).forEach(contrib => {
-      contrib.net = contrib.owes - contrib.paid;
-    });
+      // Calculate what each member paid and owes with currency conversion
+      for (const expense of groupExpenses) {
+        const paidById = expense.paid_by;
+        const expenseCurrency = expense.currency || 'USD';
+        
+        // Convert expense amount to user's preferred currency
+        let convertedAmount = expense.amount;
+        if (expenseCurrency !== userCurrency) {
+          try {
+            const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, userCurrency);
+            if (success) {
+              convertedAmount = amount;
+            }
+          } catch (error) {
+            console.error('Currency conversion failed for expense:', expense.id, error);
+          }
+        }
 
-    return contributions;
-  }, [groupMembers, groupExpenses]);
+        const splitAmount = convertedAmount / (expense.expense_splits?.length || 1);
+
+        // Add to what this person paid (in converted currency)
+        if (contributions[paidById]) {
+          contributions[paidById].paid += convertedAmount;
+        }
+
+        // Add to what each person in the split owes (in converted currency)
+        expense.expense_splits?.forEach(split => {
+          if (contributions[split.user_id]) {
+            contributions[split.user_id].owes += splitAmount;
+          }
+        });
+      }
+
+      // Calculate net amounts (positive = they owe the group, negative = group owes them)
+      Object.values(contributions).forEach(contrib => {
+        contrib.net = contrib.owes - contrib.paid;
+      });
+
+      setMemberContributions(contributions);
+    };
+
+    if (groupMembers.length > 0) {
+      calculateContributions();
+    }
+  }, [groupMembers, groupExpenses, userCurrency]);
 
   if (!group) {
     return (
