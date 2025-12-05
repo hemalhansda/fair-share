@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import ExpenseItem from '../expenses/ExpenseItem';
+import ExpenseDetailModal from '../modals/ExpenseDetailModal';
 import { formatCurrency } from '../../services/currency';
 
 const DashboardView = ({ 
@@ -12,9 +13,14 @@ const DashboardView = ({
   users, 
   handleSettleUp, 
   expenses,
-  userCurrency = 'USD'
+  userCurrency = 'USD',
+  currentUser
 }) => {
   const navigate = useNavigate();
+  
+  // State for expense detail modal
+  const [selectedExpense, setSelectedExpense] = useState(null);
+  const [showExpenseDetail, setShowExpenseDetail] = useState(false);
 
   return (
   <div className="space-y-6">
@@ -83,13 +89,30 @@ const DashboardView = ({
             key={expense.id} 
             expense={expense} 
             users={users} 
-            currentUser={users[0]} 
+            currentUser={currentUser} 
             formatMoney={formatMoney}
             userCurrency={userCurrency}
+            onClick={(expense) => {
+              setSelectedExpense(expense);
+              setShowExpenseDetail(true);
+            }}
           />
         ))}
       </div>
     </div>
+    
+    {/* Expense Detail Modal */}
+    <ExpenseDetailModal
+      isOpen={showExpenseDetail}
+      onClose={() => {
+        setShowExpenseDetail(false);
+        setSelectedExpense(null);
+      }}
+      expense={selectedExpense}
+      users={users}
+      currentUser={currentUser}
+      userCurrency={userCurrency}
+    />
   </div>
   );
 };

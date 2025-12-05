@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock } from 'lucide-react';
 import ExpenseItem from '../expenses/ExpenseItem';
+import ExpenseDetailModal from '../modals/ExpenseDetailModal';
 
 const ActivityView = ({ 
   expenses, 
@@ -9,7 +10,12 @@ const ActivityView = ({
   formatMoney,
   userCurrency = 'USD',
   isLoading 
-}) => (
+}) => {
+  // State for expense detail modal
+  const [selectedExpense, setSelectedExpense] = useState(null);
+  const [showExpenseDetail, setShowExpenseDetail] = useState(false);
+
+  return (
   <div className="space-y-6">
     <h2 className="text-lg font-bold text-gray-800">Recent Activity</h2>
     
@@ -29,6 +35,10 @@ const ActivityView = ({
             currentUser={currentUser} 
             formatMoney={formatMoney}
             userCurrency={userCurrency}
+            onClick={(expense) => {
+              setSelectedExpense(expense);
+              setShowExpenseDetail(true);
+            }}
           />
         ))}
         
@@ -41,7 +51,21 @@ const ActivityView = ({
         )}
       </div>
     )}
+    
+    {/* Expense Detail Modal */}
+    <ExpenseDetailModal
+      isOpen={showExpenseDetail}
+      onClose={() => {
+        setShowExpenseDetail(false);
+        setSelectedExpense(null);
+      }}
+      expense={selectedExpense}
+      users={users}
+      currentUser={currentUser}
+      userCurrency={userCurrency}
+    />
   </div>
-);
+  );
+};
 
 export default ActivityView;

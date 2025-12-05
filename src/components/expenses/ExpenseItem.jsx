@@ -3,7 +3,7 @@ import { Receipt, Users } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import { formatCurrency, getCurrencySymbol, convertCurrency } from '../../services/currency';
 
-const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 'USD' }) => {
+const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 'USD', onClick }) => {
   const [convertedAmount, setConvertedAmount] = useState(expense.amount);
   const [isConverting, setIsConverting] = useState(false);
   
@@ -51,7 +51,10 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 
   }, [expense.amount, expenseOriginalCurrency, userCurrency]);
   
   return (
-    <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all">
+    <div 
+      className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all cursor-pointer hover:bg-gray-50"
+      onClick={() => onClick && onClick(expense)}
+    >
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
           <Receipt className="w-5 h-5 text-blue-600" />

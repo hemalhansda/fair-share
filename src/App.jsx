@@ -392,6 +392,11 @@ function AppRouter() {
   // Calculate debts for the current user (in their preferred currency)
   const [balances, setBalances] = useState({ totalOwed: 0, totalOwes: 0, details: {} });
 
+  // Memoized filtered expenses to prevent unnecessary re-renders
+  const filteredExpenses = useMemo(() => {
+    return selectedGroup ? expenses.filter(e => e.group_id === selectedGroup.id) : expenses;
+  }, [expenses, selectedGroup?.id]);
+
   // Calculate balances with currency conversion
   useEffect(() => {
     const calculateBalancesWithCurrency = async () => {
@@ -978,6 +983,7 @@ function AppRouter() {
                 handleSettleUp={handleSettleUp}
                 expenses={expenses}
                 userCurrency={userPreferences.currency}
+                currentUser={currentUser}
               />
             } 
           />
@@ -1031,7 +1037,7 @@ function AppRouter() {
             path="activity" 
             element={
               <ActivityView 
-                expenses={selectedGroup ? expenses.filter(e => e.group_id === selectedGroup.id) : expenses}
+                expenses={filteredExpenses}
                 users={users}
                 currentUser={currentUser}
                 formatMoney={formatMoneySync}

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import ExpenseItem from '../expenses/ExpenseItem';
+import ExpenseDetailModal from '../modals/ExpenseDetailModal';
 import { formatCurrency, convertCurrency } from '../../services/currency';
 import { calculateBalances } from '../../services/database';
 
@@ -19,11 +20,17 @@ const GroupDetailView = ({
   const navigate = useNavigate();
   const { groupId } = useParams();
   
+  // State for expense detail modal
+  const [selectedExpense, setSelectedExpense] = useState(null);
+  const [showExpenseDetail, setShowExpenseDetail] = useState(false);
+  
   // Find the group by ID
   const group = groups?.find(g => g.id === groupId);
 
-  // Filter expenses for this group
-  const groupExpenses = expenses.filter(e => e.group_id === group?.id);
+  // Filter expenses for this group (memoized to prevent infinite re-renders)
+  const groupExpenses = useMemo(() => {
+    return expenses.filter(e => e.group_id === group?.id);
+  }, [expenses, group?.id]);
 
   // Get group members with user details (including current user)
   const groupMembers = useMemo(() => {
@@ -80,7 +87,7 @@ const GroupDetailView = ({
     };
 
     calculateGroupBalances();
-  }, [groupExpenses, currentUser?.id, users, userCurrency]);
+  }, [groupExpenses, currentUser?.id, userCurrency]); // Removed users from dependency to prevent re-renders
 
   // Calculate individual member contributions with currency conversion
   const [memberContributions, setMemberContributions] = useState({});
@@ -143,7 +150,7 @@ const GroupDetailView = ({
     if (groupMembers.length > 0) {
       calculateContributions();
     }
-  }, [groupMembers, groupExpenses, userCurrency]);
+  }, [group?.id, groupExpenses, userCurrency]); // Use group ID instead of groupMembers to prevent re-renders
 
   if (!group) {
     return (
@@ -274,6 +281,10 @@ const GroupDetailView = ({
                 currentUser={currentUser} 
                 formatMoney={formatMoney}
                 userCurrency={userCurrency}
+                onClick={(expense) => {
+                  setSelectedExpense(expense);
+                  setShowExpenseDetail(true);
+                }}
               />
             ))
           ) : (
@@ -285,6 +296,19 @@ const GroupDetailView = ({
           )}
         </div>
       </div>
+      
+      {/* Expense Detail Modal */}
+      <ExpenseDetailModal
+        isOpen={showExpenseDetail}
+        onClose={() => {
+          setShowExpenseDetail(false);
+          setSelectedExpense(null);
+        }}
+        expense={selectedExpense}
+        users={users}
+        currentUser={currentUser}
+        userCurrency={userCurrency}
+      />
     </div>
   );
 };

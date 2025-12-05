@@ -523,18 +523,26 @@ export async function createExpense(expenseData) {
     
     // Convert payer ID to UUID if needed
     let payerUuid = paidById
-    if (typeof paidById === 'string' && paidById.length > 36) {
+    
+    // Check if this looks like a Google ID (not a UUID)
+    const isGoogleId = typeof paidById === 'string' && 
+                      !paidById.includes('-') && 
+                      paidById.length > 15; // Google IDs are typically 21 chars long
+    
+    if (isGoogleId) {
       // This looks like a Google ID, convert to UUID
-      const { data: payerUser } = await supabase
+      const { data: payerUser, error: userError } = await supabase
         .from('users')
         .select('id')
         .eq('google_id', paidById)
         .single()
       
-      if (!payerUser) {
-        throw new Error('Payer not found')
+      if (userError || !payerUser) {
+        console.error('User lookup error:', userError);
+        throw new Error(`Payer not found for Google ID: ${paidById}`)
       }
       payerUuid = payerUser.id
+      console.log(`Converted Google ID ${paidById} to UUID ${payerUuid}`);
     }
 
     // Create the expense (without currency column for now)
@@ -560,17 +568,25 @@ export async function createExpense(expenseData) {
       // Use custom split amounts
       for (const [userId, amount] of Object.entries(expenseData.custom_splits)) {
         let userUuid = userId
-        if (typeof userId === 'string' && userId.length > 36) {
+        
+        // Check if this looks like a Google ID (not a UUID)
+        const isGoogleId = typeof userId === 'string' && 
+                          !userId.includes('-') && 
+                          userId.length > 15;
+        
+        if (isGoogleId) {
           // Convert Google ID to UUID
-          const { data: splitUser } = await supabase
+          const { data: splitUser, error: splitUserError } = await supabase
             .from('users')
             .select('id')
             .eq('google_id', userId)
             .single()
           
-          if (splitUser) {
-            userUuid = splitUser.id
+          if (splitUserError || !splitUser) {
+            console.error('Split user lookup error:', splitUserError);
+            throw new Error(`Split user not found for Google ID: ${userId}`);
           }
+          userUuid = splitUser.id
         }
         
         splitInserts.push({
@@ -585,17 +601,25 @@ export async function createExpense(expenseData) {
       
       for (const userId of splitWith) {
         let userUuid = userId
-        if (typeof userId === 'string' && userId.length > 36) {
+        
+        // Check if this looks like a Google ID (not a UUID)
+        const isGoogleId = typeof userId === 'string' && 
+                          !userId.includes('-') && 
+                          userId.length > 15;
+        
+        if (isGoogleId) {
           // This looks like a Google ID, convert to UUID
-          const { data: splitUser } = await supabase
+          const { data: splitUser, error: splitUserError } = await supabase
             .from('users')
             .select('id')
             .eq('google_id', userId)
             .single()
           
-          if (splitUser) {
-            userUuid = splitUser.id
+          if (splitUserError || !splitUser) {
+            console.error('Split user lookup error:', splitUserError);
+            throw new Error(`Split user not found for Google ID: ${userId}`);
           }
+          userUuid = splitUser.id
         }
         
         splitInserts.push({
