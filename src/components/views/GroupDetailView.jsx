@@ -15,7 +15,8 @@ const GroupDetailView = ({
   currentUser, 
   formatMoney, 
   setShowAddExpense,
-  userCurrency = 'USD' 
+  userCurrency = 'USD',
+  onEditExpense
 }) => {
   const navigate = useNavigate();
   const { groupId } = useParams();
@@ -308,6 +309,7 @@ const GroupDetailView = ({
         users={users}
         currentUser={currentUser}
         userCurrency={userCurrency}
+        onEdit={onEditExpense}
         onUpdate={(updatedExpense) => {
           // Handle expense update - you might want to refresh expenses here
           console.log('Expense updated:', updatedExpense);

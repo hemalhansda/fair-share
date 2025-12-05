@@ -19,19 +19,13 @@ const LandingPage = ({
   <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50">
     {/* Header */}
     <header className="relative z-10 px-6 py-8">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
+      <div className="max-w-6xl mx-auto flex items-center justify-center">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center">
             <PieChart className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-gray-800">FairShare</h1>
         </div>
-        <button
-          onClick={() => setShowLanding(false)}
-          className="px-6 py-2 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full text-gray-600 hover:bg-white transition-all duration-200"
-        >
-          Skip Intro
-        </button>
       </div>
     </header>
 

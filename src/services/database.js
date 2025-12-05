@@ -568,6 +568,52 @@ export async function createExpense(expenseData) {
 
     if (expenseError) throw expenseError
 
+    // Handle image upload if provided
+    let imageUrl = null;
+    let imageUploadWarning = null;
+    
+    if (expenseData.imageFile) {
+      const imageResult = await uploadExpenseImage(expenseData.imageFile, expense.id);
+      if (imageResult.success) {
+        imageUrl = imageResult.publicUrl;
+        
+        // For base64 storage, store the actual data URL in receipt_image_url
+        // For Supabase storage, store the public URL
+        const updateData = {
+          receipt_image_path: imageResult.filePath,
+          receipt_image_url: imageUrl
+        };
+        
+        // Update expense with image information
+        const { error: updateError } = await supabase
+          .from('expenses')
+          .update(updateData)
+          .eq('id', expense.id);
+
+        if (updateError) {
+          console.error('Error updating expense with image:', updateError);
+          imageUploadWarning = 'Expense created but image upload failed';
+        } else {
+          console.log(`Image uploaded successfully using ${imageResult.storageType} storage`);
+        }
+      } else {
+        console.error('Failed to upload image:', imageResult.error);
+        imageUploadWarning = imageResult.error;
+        
+        // Don't fail the entire expense creation if image upload fails
+        if (!imageResult.isConfigError && !imageResult.isPermissionError) {
+          console.warn('Image upload failed, but expense will still be created');
+        }
+      }
+    }
+    
+    // Return result with any image upload warnings
+    const result = { success: true, data: expense };
+    if (imageUploadWarning) {
+      result.warning = imageUploadWarning;
+    }
+    return result;
+
     // Handle custom splits or equal splits
     const splitInserts = []
     
@@ -643,7 +689,7 @@ export async function createExpense(expenseData) {
 
     if (splitsError) throw splitsError
 
-    return { success: true, data: expense }
+    // This return is moved up to handle image upload warnings
   } catch (error) {
     console.error('Error creating expense:', error)
     return { success: false, error: error.message }
@@ -786,6 +832,50 @@ export async function updateExpense(expenseId, expenseData) {
       .insert(splitInserts)
 
     if (splitsError) throw splitsError
+
+    // Handle image upload/replacement if provided
+    if (expenseData.imageFile) {
+      // If there's an existing image, delete it first
+      if (expenseData.existingImagePath) {
+        await deleteExpenseImage(expenseData.existingImagePath);
+      }
+
+      // Upload new image
+      const imageResult = await uploadExpenseImage(expenseData.imageFile, expense.id);
+      if (imageResult.success) {
+        // Update expense with new image path and URL
+        // For both storage types, publicUrl contains the usable image URL
+        const { error: updateError } = await supabase
+          .from('expenses')
+          .update({ 
+            receipt_image_path: imageResult.filePath,
+            receipt_image_url: imageResult.publicUrl 
+          })
+          .eq('id', expenseId);
+
+        if (updateError) {
+          console.error('Error updating expense with new image:', updateError);
+        } else {
+          console.log(`Image updated successfully using ${imageResult.storageType} storage`);
+        }
+      }
+    } else if (expenseData.removeImage && expenseData.existingImagePath) {
+      // Remove image if requested
+      await deleteExpenseImage(expenseData.existingImagePath);
+      
+      // Clear image fields in database
+      const { error: clearError } = await supabase
+        .from('expenses')
+        .update({ 
+          receipt_image_path: null,
+          receipt_image_url: null 
+        })
+        .eq('id', expenseId);
+
+      if (clearError) {
+        console.error('Error clearing image from expense:', clearError);
+      }
+    }
 
     return { success: true, data: expense }
   } catch (error) {
@@ -1161,4 +1251,177 @@ export async function getUserPreferences(userId) {
 // Check if Supabase is properly configured
 export function isSupabaseConfigured() {
   return !!(import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY)
+}
+
+
+
+// ===== FILE UPLOAD OPERATIONS =====
+
+export async function uploadExpenseImage(file, expenseId) {
+  try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, using base64 storage')
+      return await uploadImageAsBase64(file, expenseId)
+    }
+
+    // Generate unique filename with timestamp
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${expenseId}_${Date.now()}.${fileExt}`
+    const filePath = `expense-receipts/${fileName}`
+
+    // Try to upload to Supabase storage first
+    const { data, error } = await supabase.storage
+      .from('expense-files')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      })
+
+    if (error) {
+      // Handle RLS policy errors by falling back to base64
+      // Check multiple possible error formats from Supabase
+      const isRLSError = error.message?.includes('row-level security policy') || 
+                        error.message?.includes('Unauthorized') ||
+                        error.statusCode === '403' ||
+                        error.statusCode === 403 ||
+                        (typeof error === 'object' && error.statusCode === '403') ||
+                        (typeof error === 'object' && error.error === 'Unauthorized');
+                        
+      if (isRLSError) {
+        console.info('Using base64 storage (Supabase storage requires configuration)')
+        return await uploadImageAsBase64(file, expenseId)
+      }
+      
+      console.error('Storage upload error:', error)
+      
+      // Handle bucket not found errors
+      const isBucketError = error.message?.includes('not found') || 
+                           error.statusCode === '404' ||
+                           error.statusCode === 404;
+                           
+      if (isBucketError) {
+        console.warn('Storage bucket not found, falling back to base64 storage')
+        return await uploadImageAsBase64(file, expenseId)
+      }
+      
+      // For any other storage error, also fall back to base64 as a safety measure
+      console.warn('Storage upload failed, falling back to base64 storage. Error:', error)
+      return await uploadImageAsBase64(file, expenseId)
+    }
+
+    // Get public URL for successful storage upload
+    const { data: { publicUrl } } = supabase.storage
+      .from('expense-files')
+      .getPublicUrl(filePath)
+
+    return { 
+      success: true, 
+      filePath: filePath,
+      publicUrl: publicUrl,
+      storageType: 'supabase'
+    }
+  } catch (error) {
+    console.info('Using base64 storage fallback')
+    return await uploadImageAsBase64(file, expenseId)
+  }
+}
+
+// Fallback function to store images as base64 in database
+async function uploadImageAsBase64(file, expenseId) {
+  return new Promise((resolve) => {
+    // Validate file size (max 2MB for base64 to avoid database bloat)
+    if (file.size > 2 * 1024 * 1024) {
+      resolve({
+        success: false,
+        error: 'Image too large for base64 storage (max 2MB)',
+        isFileSizeError: true
+      })
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const base64 = reader.result
+      resolve({
+        success: true,
+        publicUrl: base64, // base64 data URL can be used directly as src
+        filePath: `base64_${expenseId}_${Date.now()}`, // dummy path for identification
+        storageType: 'base64'
+      })
+    }
+    reader.onerror = () => {
+      resolve({
+        success: false,
+        error: 'Failed to read image file',
+        isFileReadError: true
+      })
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+export async function deleteExpenseImage(filePath) {
+  try {
+    if (!filePath) {
+      return { success: true } // Nothing to delete
+    }
+
+    // If it's a base64 stored image, no actual file to delete
+    if (filePath.startsWith('base64_')) {
+      console.log('Base64 image path, no storage file to delete')
+      return { success: true }
+    }
+
+    // Check if Supabase is configured for actual storage deletion
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, skipping storage deletion')
+      return { success: true } // Don't block the operation
+    }
+
+    const { error } = await supabase.storage
+      .from('expense-files')
+      .remove([filePath])
+
+    if (error) {
+      console.error('Error deleting expense image:', error)
+      // Don't fail the operation if storage deletion fails
+      return { success: true, warning: error.message }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting expense image:', error)
+    // Don't fail the operation if deletion fails
+    return { success: true, warning: error.message || 'Failed to delete image file' }
+  }
+}
+
+export async function getExpenseImageUrl(filePath) {
+  try {
+    if (!filePath) {
+      return { success: false, error: 'No image path provided' }
+    }
+
+    // If it's a base64 image, the filePath is actually the data URL
+    if (filePath.startsWith('base64_')) {
+      // For base64 images, we need to get the actual data URL from the expense record
+      // This is a simplified approach - in practice you'd query the expense record
+      return { success: false, error: 'Base64 image URL should be stored in expense record' }
+    }
+
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Storage not configured' }
+    }
+
+    const { data } = supabase.storage
+      .from('expense-files')
+      .getPublicUrl(filePath)
+
+    return { success: true, url: data.publicUrl }
+  } catch (error) {
+    console.error('Error getting expense image URL:', error)
+    return { success: false, error: error.message }
+  }
 }

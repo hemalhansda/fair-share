@@ -1,44 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, DollarSign, Upload, Eye, Trash2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Avatar from '../ui/Avatar';
 import { CURRENCIES, getCurrencyOptions, getCurrencySymbol } from '../../services/currency';
 
-const AddExpenseModal = ({ 
+const EditExpenseModal = ({ 
   isOpen, 
   onClose, 
   users, 
   currentUser, 
   groups,
-  onAddExpense,
-  selectedGroup = null // Pre-selected group when adding expense from group detail view
+  onUpdateExpense,
+  expense,
+  selectedGroup = null
 }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('USD');
-  const [paidBy, setPaidBy] = useState(currentUser?.id || '');
+  const [paidBy, setPaidBy] = useState('');
   const [splitWith, setSplitWith] = useState([]);
-  const [groupId, setGroupId] = useState(selectedGroup?.id || '');
+  const [groupId, setGroupId] = useState('');
   const [splitMethod, setSplitMethod] = useState('equal');
   const [customSplits, setCustomSplits] = useState({});
-  const [customSplitType, setCustomSplitType] = useState('amount'); // 'amount' or 'percentage'
-  const [category, setCategory] = useState('General'); // Default category
-  const [expenseDate, setExpenseDate] = useState(new Date().toISOString().split('T')[0]); // Today's date
-  const [expenseTime, setExpenseTime] = useState(new Date().toTimeString().slice(0, 5)); // Current time
+  const [customSplitType, setCustomSplitType] = useState('amount');
+  const [category, setCategory] = useState('General');
+  const [expenseDate, setExpenseDate] = useState('');
+  const [expenseTime, setExpenseTime] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [existingImageUrl, setExistingImageUrl] = useState(null);
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
 
-  // Update groupId when selectedGroup changes or modal opens
-  React.useEffect(() => {
-    if (isOpen) {
-      setGroupId(selectedGroup?.id || '');
-      // If we have a selected group, auto-populate split with all group members
-      if (selectedGroup?.members) {
-        setSplitWith(selectedGroup.members);
+  // Initialize form with expense data when modal opens
+  useEffect(() => {
+    if (isOpen && expense) {
+      setDescription(expense.description || '');
+      setAmount(expense.amount?.toString() || '');
+      setCurrency(expense.currency || 'USD');
+      setPaidBy(expense.paid_by || '');
+      setGroupId(expense.group_id || '');
+      setCategory(expense.category || 'General');
+      
+      // Handle date/time
+      if (expense.created_at) {
+        const date = new Date(expense.created_at);
+        setExpenseDate(date.toISOString().split('T')[0]);
+        setExpenseTime(date.toTimeString().slice(0, 5));
       }
+      
+      // Handle splits
+      if (expense.expense_splits && expense.expense_splits.length > 0) {
+        setSplitWith(expense.expense_splits.map(split => split.user_id));
+        
+        // Check if it's custom splits
+        const equalSplit = expense.amount / expense.expense_splits.length;
+        const hasCustomSplits = expense.expense_splits.some(split => 
+          Math.abs(split.amount - equalSplit) > 0.01
+        );
+        
+        if (hasCustomSplits) {
+          setSplitMethod('custom');
+          setCustomSplitType('amount');
+          const splits = {};
+          expense.expense_splits.forEach(split => {
+            splits[split.user_id] = split.amount;
+          });
+          setCustomSplits(splits);
+        } else {
+          setSplitMethod('equal');
+          setCustomSplits({});
+        }
+      } else if (expense.split_with) {
+        setSplitWith(expense.split_with);
+        setSplitMethod('equal');
+        setCustomSplits({});
+      }
+      
+      // Handle existing image
+      if (expense.receipt_image_url) {
+        setExistingImageUrl(expense.receipt_image_url);
+      }
+      
+      // Reset new image state
+      setImageFile(null);
+      setImagePreview(null);
+      setRemoveExistingImage(false);
     }
-  }, [isOpen, selectedGroup]);
+  }, [isOpen, expense]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -71,7 +120,7 @@ const AddExpenseModal = ({
     // Create datetime from date and time inputs
     const expenseDateTime = new Date(`${expenseDate}T${expenseTime}`);
     
-    const expense = {
+    const updatedExpense = {
       description: description.trim(),
       amount: parseFloat(amount),
       currency: currency,
@@ -82,11 +131,13 @@ const AddExpenseModal = ({
       custom_splits: splitMethod === 'custom' ? finalSplits : null,
       custom_split_type: splitMethod === 'custom' ? customSplitType : null,
       category: category,
-      date: expenseDateTime.toISOString(), // Store as ISO string
-      imageFile: imageFile // Include image file for upload
+      date: expenseDateTime.toISOString(),
+      imageFile: imageFile,
+      existingImagePath: expense?.receipt_image_path,
+      removeImage: removeExistingImage
     };
 
-    onAddExpense(expense);
+    onUpdateExpense(expense.id, updatedExpense);
     handleClose();
   };
 
@@ -94,17 +145,19 @@ const AddExpenseModal = ({
     setDescription('');
     setAmount('');
     setCurrency('USD');
-    setPaidBy(currentUser?.id || '');
+    setPaidBy('');
     setSplitWith([]);
     setGroupId('');
     setSplitMethod('equal');
     setCustomSplits({});
     setCustomSplitType('amount');
     setCategory('General');
-    setExpenseDate(new Date().toISOString().split('T')[0]);
-    setExpenseTime(new Date().toTimeString().slice(0, 5));
+    setExpenseDate('');
+    setExpenseTime('');
     setImageFile(null);
     setImagePreview(null);
+    setExistingImageUrl(null);
+    setRemoveExistingImage(false);
     onClose();
   };
 
@@ -121,39 +174,6 @@ const AddExpenseModal = ({
       ...prev,
       [userId]: parseFloat(value) || 0
     }));
-  };
-
-  // Calculate total of custom splits
-  const getTotalCustomSplits = () => {
-    return Object.values(customSplits).reduce((sum, val) => sum + (val || 0), 0);
-  };
-
-  // Check if custom splits are valid
-  const isCustomSplitValid = () => {
-    if (splitMethod !== 'custom') return true;
-    
-    const total = getTotalCustomSplits();
-    const expenseAmount = parseFloat(amount) || 0;
-    
-    if (customSplitType === 'percentage') {
-      return Math.abs(total - 100) < 0.01; // Allow for small floating point differences
-    } else {
-      return Math.abs(total - expenseAmount) < 0.01;
-    }
-  };
-
-  // Get the difference for validation display
-  const getCustomSplitDifference = () => {
-    if (splitMethod !== 'custom') return 0;
-    
-    const total = getTotalCustomSplits();
-    const expenseAmount = parseFloat(amount) || 0;
-    
-    if (customSplitType === 'percentage') {
-      return 100 - total;
-    } else {
-      return expenseAmount - total;
-    }
   };
 
   // Image handling functions
@@ -182,9 +202,47 @@ const AddExpenseModal = ({
     }
   };
 
-  const removeImage = () => {
+  const removeNewImage = () => {
     setImageFile(null);
     setImagePreview(null);
+  };
+
+  const handleRemoveExistingImage = () => {
+    setRemoveExistingImage(true);
+    setExistingImageUrl(null);
+  };
+
+  // Calculate total of custom splits
+  const getTotalCustomSplits = () => {
+    return Object.values(customSplits).reduce((sum, val) => sum + (val || 0), 0);
+  };
+
+  // Check if custom splits are valid
+  const isCustomSplitValid = () => {
+    if (splitMethod !== 'custom') return true;
+    
+    const total = getTotalCustomSplits();
+    const expenseAmount = parseFloat(amount) || 0;
+    
+    if (customSplitType === 'percentage') {
+      return Math.abs(total - 100) < 0.01;
+    } else {
+      return Math.abs(total - expenseAmount) < 0.01;
+    }
+  };
+
+  // Get the difference for validation display
+  const getCustomSplitDifference = () => {
+    if (splitMethod !== 'custom') return 0;
+    
+    const total = getTotalCustomSplits();
+    const expenseAmount = parseFloat(amount) || 0;
+    
+    if (customSplitType === 'percentage') {
+      return 100 - total;
+    } else {
+      return expenseAmount - total;
+    }
   };
 
   const availableUsers = groupId 
@@ -195,7 +253,7 @@ const AddExpenseModal = ({
     : users;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Add Expense">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Edit Expense">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -304,10 +362,10 @@ const AddExpenseModal = ({
           </div>
         </div>
 
-        {/* Receipt Image Upload */}
+        {/* Receipt Image Section */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Receipt Image (optional)
+            Receipt Image
           </label>
           {!window.location.hostname.includes('localhost') && (
             <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
@@ -315,22 +373,60 @@ const AddExpenseModal = ({
             </div>
           )}
           
+          {/* Existing Image Display */}
+          {existingImageUrl && !removeExistingImage && (
+            <div className="mb-4">
+              <div className="relative border border-gray-300 rounded-lg overflow-hidden">
+                <img
+                  src={existingImageUrl}
+                  alt="Current receipt"
+                  className="w-full h-48 object-cover"
+                />
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => window.open(existingImageUrl, '_blank')}
+                    className="p-2 bg-black bg-opacity-50 text-white rounded-lg hover:bg-opacity-70 transition-all"
+                    title="View full size"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveExistingImage}
+                    className="p-2 bg-red-500 bg-opacity-80 text-white rounded-lg hover:bg-opacity-100 transition-all"
+                    title="Remove current image"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="p-3 bg-gray-50 border-t">
+                  <p className="text-sm text-gray-600">Current receipt image</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* New Image Upload/Preview */}
           {!imagePreview ? (
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
               <input
                 type="file"
-                id="receipt-upload"
+                id="receipt-upload-edit"
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
               />
               <label
-                htmlFor="receipt-upload"
+                htmlFor="receipt-upload-edit"
                 className="cursor-pointer flex flex-col items-center gap-2"
               >
                 <Upload className="w-8 h-8 text-gray-400" />
                 <span className="text-sm text-gray-600">
-                  Click to upload receipt image
+                  {existingImageUrl && !removeExistingImage 
+                    ? 'Click to replace receipt image' 
+                    : 'Click to upload receipt image'
+                  }
                 </span>
                 <span className="text-xs text-gray-400">
                   PNG, JPG, GIF up to 5MB
@@ -341,7 +437,7 @@ const AddExpenseModal = ({
             <div className="relative border border-gray-300 rounded-lg overflow-hidden">
               <img
                 src={imagePreview}
-                alt="Receipt preview"
+                alt="New receipt preview"
                 className="w-full h-48 object-cover"
               />
               <div className="absolute top-2 right-2 flex gap-2">
@@ -355,16 +451,16 @@ const AddExpenseModal = ({
                 </button>
                 <button
                   type="button"
-                  onClick={removeImage}
+                  onClick={removeNewImage}
                   className="p-2 bg-red-500 bg-opacity-80 text-white rounded-lg hover:bg-opacity-100 transition-all"
-                  title="Remove image"
+                  title="Remove new image"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
               <div className="p-3 bg-gray-50 border-t">
                 <p className="text-sm text-gray-600 truncate">
-                  {imageFile?.name}
+                  {imageFile?.name} (new)
                 </p>
                 <p className="text-xs text-gray-400">
                   {imageFile ? `${(imageFile.size / 1024 / 1024).toFixed(2)} MB` : ''}
@@ -478,7 +574,7 @@ const AddExpenseModal = ({
                         checked={customSplitType === 'amount'}
                         onChange={(e) => {
                           setCustomSplitType(e.target.value);
-                          setCustomSplits({}); // Reset splits when switching type
+                          setCustomSplits({});
                         }}
                         className="text-blue-600 focus:ring-blue-500"
                       />
@@ -491,7 +587,7 @@ const AddExpenseModal = ({
                         checked={customSplitType === 'percentage'}
                         onChange={(e) => {
                           setCustomSplitType(e.target.value);
-                          setCustomSplits({}); // Reset splits when switching type
+                          setCustomSplits({});
                         }}
                         className="text-blue-600 focus:ring-blue-500"
                       />
@@ -584,7 +680,7 @@ const AddExpenseModal = ({
             disabled={!description.trim() || !amount || splitWith.length === 0 || !isCustomSplitValid()}
             className="flex-1"
           >
-            Add Expense
+            Update Expense
           </Button>
         </div>
       </form>
@@ -592,4 +688,4 @@ const AddExpenseModal = ({
   );
 };
 
-export default AddExpenseModal;
+export default EditExpenseModal;

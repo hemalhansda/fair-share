@@ -42,6 +42,7 @@ import GroupDetailView from './components/views/GroupDetailView';
 import FriendsView from './components/views/FriendsView';
 import ActivityView from './components/views/ActivityView';
 import AddExpenseModal from './components/modals/AddExpenseModal';
+import EditExpenseModal from './components/modals/EditExpenseModal';
 import AddGroupModal from './components/modals/AddGroupModal';
 import AddFriendModal from './components/modals/AddFriendModal';
 import EditUserModal from './components/modals/EditUserModal';
@@ -61,11 +62,15 @@ import {
   deleteGroup,
   getUserGroups,
   createExpense,
+  updateExpense,
   getUserExpenses,
   calculateBalances,
   updateUserPreferences,
   getUserPreferences,
   isSupabaseConfigured,
+  uploadExpenseImage,
+  deleteExpenseImage,
+  getExpenseImageUrl,
   DEMO_USERS,
   DEMO_GROUPS,
   DEMO_EXPENSES
@@ -170,6 +175,7 @@ function AppRouter() {
   
   // Modals State
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isEditExpenseModalOpen, setIsEditExpenseModalOpen] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [isFriendModalOpen, setIsFriendModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -178,6 +184,7 @@ function AppRouter() {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState(null);
   const [selectedGroupToEdit, setSelectedGroupToEdit] = useState(null);
+  const [selectedExpenseToEdit, setSelectedExpenseToEdit] = useState(null);
 
   // Check for existing authentication on app load
   useEffect(() => {
@@ -515,11 +522,61 @@ function AppRouter() {
         if (expensesResult.success) {
           setExpenses(expensesResult.data);
         }
+        
+        // Show warning if image upload failed
+        if (result.warning) {
+          showWarning(`Expense created successfully, but ${result.warning}`);
+        } else {
+          showSuccess('Expense added successfully');
+        }
       } else {
         showError('Failed to add expense: ' + result.error);
         return;
       }
     }
+  };
+
+  const handleUpdateExpense = async (expenseId, updatedExpense) => {
+    if (isDemoMode) {
+      // Demo mode - update local state
+      setExpenses(prevExpenses => 
+        prevExpenses.map(expense => 
+          expense.id === expenseId 
+            ? {
+                ...expense,
+                description: updatedExpense.description,
+                amount: updatedExpense.amount,
+                currency: updatedExpense.currency || 'USD',
+                created_at: updatedExpense.date,
+                paid_by: updatedExpense.paid_by,
+                group_id: updatedExpense.group_id,
+                split_between: updatedExpense.split_with,
+                category: updatedExpense.category || 'General'
+              }
+            : expense
+        )
+      );
+      showSuccess('Expense updated successfully');
+    } else {
+      // Database mode
+      const result = await updateExpense(expenseId, updatedExpense);
+      if (result.success) {
+        // Reload expenses to get updated data
+        const expensesResult = await getUserExpenses(currentUser.id);
+        if (expensesResult.success) {
+          setExpenses(expensesResult.data);
+        }
+        showSuccess('Expense updated successfully');
+      } else {
+        showError('Failed to update expense: ' + result.error);
+        return;
+      }
+    }
+  };
+
+  const handleEditExpense = (expense) => {
+    setSelectedExpenseToEdit(expense);
+    setIsEditExpenseModalOpen(true);
   };
 
   const handleAddGroup = async (group) => {
@@ -1046,6 +1103,7 @@ function AppRouter() {
                 userCurrency={userPreferences.currency}
                 currentUser={currentUser}
                 isDataLoading={isDataLoading}
+                onEditExpense={handleEditExpense}
               />
             } 
           />
@@ -1077,6 +1135,7 @@ function AppRouter() {
                 formatMoney={formatMoney}
                 setShowAddExpense={() => setIsExpenseModalOpen(true)}
                 userCurrency={userPreferences.currency}
+                onEditExpense={handleEditExpense}
               />
             } 
           />
@@ -1107,6 +1166,7 @@ function AppRouter() {
                 formatMoney={formatMoneySync}
                 userCurrency={userPreferences.currency}
                 isLoading={isDataLoading}
+                onEditExpense={handleEditExpense}
               />
             } 
           />
@@ -1129,6 +1189,20 @@ function AppRouter() {
         currentUser={currentUser}
         groups={groups}
         handleAddExpense={handleAddExpense}
+        selectedGroup={selectedGroup}
+      />
+
+      <EditExpenseModal
+        isOpen={isEditExpenseModalOpen}
+        onClose={() => {
+          setIsEditExpenseModalOpen(false);
+          setSelectedExpenseToEdit(null);
+        }}
+        expense={selectedExpenseToEdit}
+        users={users}
+        currentUser={currentUser}
+        groups={groups}
+        onUpdateExpense={handleUpdateExpense}
         selectedGroup={selectedGroup}
       />
 

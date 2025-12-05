@@ -16,7 +16,8 @@ const DashboardView = ({
   expenses,
   userCurrency = 'USD',
   currentUser,
-  isDataLoading = false
+  isDataLoading = false,
+  onEditExpense
 }) => {
   const navigate = useNavigate();
   
@@ -118,6 +119,7 @@ const DashboardView = ({
       users={users}
       currentUser={currentUser}
       userCurrency={userCurrency}
+      onEdit={onEditExpense}
       onUpdate={(updatedExpense) => {
         console.log('Expense updated:', updatedExpense);
         setShowExpenseDetail(false);

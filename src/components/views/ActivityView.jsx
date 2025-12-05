@@ -10,7 +10,8 @@ const ActivityView = ({
   currentUser, 
   formatMoney,
   userCurrency = 'USD',
-  isLoading 
+  isLoading,
+  onEditExpense
 }) => {
   // State for expense detail modal
   const [selectedExpense, setSelectedExpense] = useState(null);
@@ -64,6 +65,7 @@ const ActivityView = ({
       users={users}
       currentUser={currentUser}
       userCurrency={userCurrency}
+      onEdit={onEditExpense}
       onUpdate={(updatedExpense) => {
         console.log('Expense updated:', updatedExpense);
         setShowExpenseDetail(false);

@@ -14,7 +14,8 @@ const ExpenseDetailModal = ({
   users, 
   currentUser,
   userCurrency = 'USD',
-  onUpdate 
+  onUpdate,
+  onEdit
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedExpense, setEditedExpense] = useState(null);
@@ -272,7 +273,14 @@ const ExpenseDetailModal = ({
             {!isEditing ? (
               <>
                 <button
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    if (onEdit) {
+                      onEdit(expense);
+                      onClose();
+                    } else {
+                      setIsEditing(true);
+                    }
+                  }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-blue-600"
                   title="Edit expense"
                 >
