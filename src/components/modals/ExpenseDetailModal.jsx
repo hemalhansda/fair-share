@@ -20,18 +20,28 @@ const ExpenseDetailModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [convertedAmounts, setConvertedAmounts] = useState({});
   const [isConverting, setIsConverting] = useState(false);
+  const [customSplitMode, setCustomSplitMode] = useState('amount'); // 'amount' or 'percentage'
 
   // Initialize edited expense when modal opens
   useEffect(() => {
     if (expense && isOpen) {
+      const splitWith = expense.expense_splits?.map(split => split.user_id) || [];
+      const customSplits = {};
+      
+      // Initialize custom splits from existing data
+      expense.expense_splits?.forEach(split => {
+        customSplits[split.user_id] = parseFloat(split.amount) || 0;
+      });
+      
       setEditedExpense({
         description: expense.description,
         amount: expense.amount,
         paid_by: expense.paid_by || expense.paidBy,
         group_id: expense.group_id || expense.groupId,
         category: expense.category || 'General',
-        split_with: expense.expense_splits?.map(split => split.user_id) || [],
-        split_method: 'equal' // Default to equal split
+        split_with: splitWith,
+        split_method: 'equal', // Default to equal split
+        custom_splits: customSplits
       });
       setIsEditing(false);
     }
@@ -131,6 +141,45 @@ const ExpenseDetailModal = ({
   const handleSave = async () => {
     if (!editedExpense) return;
 
+    // Validate that at least one person is selected for split
+    if (!editedExpense.split_with || editedExpense.split_with.length === 0) {
+      alert('Please select at least one person to split the expense with.');
+      return;
+    }
+
+    // Validate amount
+    if (!editedExpense.amount || editedExpense.amount <= 0) {
+      alert('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    // Validate description
+    if (!editedExpense.description || editedExpense.description.trim() === '') {
+      alert('Please enter a description for the expense.');
+      return;
+    }
+
+    // Validate custom split totals if using custom method
+    if (editedExpense.split_method === 'custom') {
+      if (customSplitMode === 'amount') {
+        const customSplitTotal = Object.values(editedExpense.custom_splits || {})
+          .reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);
+        
+        if (Math.abs(customSplitTotal - editedExpense.amount) > 0.01) {
+          alert(`Custom split total ($${customSplitTotal.toFixed(2)}) must equal the expense amount ($${editedExpense.amount.toFixed(2)}).`);
+          return;
+        }
+      } else {
+        const percentageTotal = Object.values(editedExpense.custom_splits || {})
+          .reduce((sum, percentage) => sum + (parseFloat(percentage) || 0), 0);
+        
+        if (Math.abs(percentageTotal - 100) > 0.1) {
+          alert(`Custom split percentages must total 100%. Current total: ${percentageTotal.toFixed(1)}%`);
+          return;
+        }
+      }
+    }
+
     setIsLoading(true);
     try {
       const result = await updateExpense(expense.id, editedExpense);
@@ -153,14 +202,23 @@ const ExpenseDetailModal = ({
 
   // Handle cancel edit
   const handleCancel = () => {
+    const splitWith = expense.expense_splits?.map(split => split.user_id) || [];
+    const customSplits = {};
+    
+    // Reset custom splits from existing data
+    expense.expense_splits?.forEach(split => {
+      customSplits[split.user_id] = parseFloat(split.amount) || 0;
+    });
+    
     setEditedExpense({
       description: expense.description,
       amount: expense.amount,
       paid_by: expense.paid_by || expense.paidBy,
       group_id: expense.group_id || expense.groupId,
       category: expense.category || 'General',
-      split_with: expense.expense_splits?.map(split => split.user_id) || [],
-      split_method: 'equal'
+      split_with: splitWith,
+      split_method: 'equal',
+      custom_splits: customSplits
     });
     setIsEditing(false);
   };
@@ -278,15 +336,30 @@ const ExpenseDetailModal = ({
               <User className="w-4 h-4" />
               Paid by
             </div>
-            <div className="flex items-center gap-3">
-              <Avatar user={paidByUser} size="sm" />
-              <div>
-                <div className="font-medium text-gray-800">
-                  {paidById === currentUser?.id ? 'You' : paidByUser?.name}
+            {isEditing ? (
+              <select
+                value={editedExpense?.paid_by || ''}
+                onChange={(e) => handleChange('paid_by', e.target.value)}
+                className="w-full text-sm text-gray-800 bg-white border border-gray-300 rounded px-3 py-2 focus:border-blue-500 outline-none"
+              >
+                <option value="">Select who paid</option>
+                {users?.map(user => (
+                  <option key={user.id} value={user.id}>
+                    {user.id === currentUser?.id ? 'You' : user.name} ({user.email})
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Avatar user={paidByUser} size="sm" />
+                <div>
+                  <div className="font-medium text-gray-800">
+                    {paidById === currentUser?.id ? 'You' : paidByUser?.name}
+                  </div>
+                  <div className="text-xs text-gray-500">{paidByUser?.email}</div>
                 </div>
-                <div className="text-xs text-gray-500">{paidByUser?.email}</div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Date */}
@@ -347,6 +420,258 @@ const ExpenseDetailModal = ({
             </div>
           )}
         </div>
+
+        {/* Split Members - Editable in edit mode */}
+        {isEditing && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Users className="w-4 h-4" />
+                Split between group members
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleChange('split_method', 'equal');
+                    setCustomSplitMode('amount');
+                  }}
+                  className={`px-3 py-1 text-xs rounded ${
+                    editedExpense?.split_method === 'equal'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-gray-100 text-gray-600 border border-gray-300'
+                  }`}
+                >
+                  Equal Split
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleChange('split_method', 'custom');
+                    // Initialize custom splits when switching to custom
+                    const currentSplitWith = editedExpense?.split_with || [];
+                    if (currentSplitWith.length > 0) {
+                      const initialSplits = {};
+                      const equalAmount = (editedExpense?.amount || 0) / currentSplitWith.length;
+                      const equalPercentage = 100 / currentSplitWith.length;
+                      
+                      currentSplitWith.forEach(userId => {
+                        initialSplits[userId] = customSplitMode === 'amount' ? equalAmount : equalPercentage;
+                      });
+                      
+                      handleChange('custom_splits', initialSplits);
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs rounded ${
+                    editedExpense?.split_method === 'custom'
+                      ? 'bg-blue-100 text-blue-700 border border-blue-300'
+                      : 'bg-gray-100 text-gray-600 border border-gray-300'
+                  }`}
+                >
+                  Custom Split
+                </button>
+              </div>
+            </div>
+            
+            {/* Custom Split Mode Toggle */}
+            {editedExpense?.split_method === 'custom' && (
+              <div className="mb-4">
+                <div className="flex gap-2 bg-gray-100 p-1 rounded-lg w-fit">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomSplitMode('amount');
+                      // Convert percentages to amounts
+                      const currentSplits = editedExpense?.custom_splits || {};
+                      const newSplits = {};
+                      Object.entries(currentSplits).forEach(([userId, value]) => {
+                        newSplits[userId] = customSplitMode === 'percentage' 
+                          ? (parseFloat(value) / 100) * (editedExpense?.amount || 0)
+                          : parseFloat(value) || 0;
+                      });
+                      handleChange('custom_splits', newSplits);
+                    }}
+                    className={`px-3 py-1 text-xs rounded ${
+                      customSplitMode === 'amount'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    Amount ($)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCustomSplitMode('percentage');
+                      // Convert amounts to percentages
+                      const currentSplits = editedExpense?.custom_splits || {};
+                      const totalAmount = editedExpense?.amount || 0;
+                      const newSplits = {};
+                      Object.entries(currentSplits).forEach(([userId, value]) => {
+                        newSplits[userId] = customSplitMode === 'amount' && totalAmount > 0
+                          ? (parseFloat(value) / totalAmount) * 100
+                          : parseFloat(value) || 0;
+                      });
+                      handleChange('custom_splits', newSplits);
+                    }}
+                    className={`px-3 py-1 text-xs rounded ${
+                      customSplitMode === 'percentage'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    Percentage (%)
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              {expense.groups?.members?.map(memberId => {
+                const user = users?.find(u => u.id === memberId) || 
+                           (memberId === currentUser?.id ? currentUser : null);
+                if (!user) return null;
+                
+                const isSelected = editedExpense?.split_with?.includes(user.id);
+                const currentSplitAmount = editedExpense?.custom_splits?.[user.id] || 
+                  (isSelected && editedExpense?.split_method === 'equal' 
+                    ? (editedExpense?.amount || 0) / (editedExpense?.split_with?.length || 1)
+                    : 0);
+                
+                return (
+                  <div key={user.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          const currentSplitWith = editedExpense?.split_with || [];
+                          if (e.target.checked) {
+                            const newSplitWith = [...currentSplitWith, user.id];
+                            handleChange('split_with', newSplitWith);
+                            
+                            // Initialize custom split amount if custom method
+                            if (editedExpense?.split_method === 'custom') {
+                              const currentCustomSplits = editedExpense?.custom_splits || {};
+                              const equalAmount = (editedExpense?.amount || 0) / newSplitWith.length;
+                              handleChange('custom_splits', {
+                                ...currentCustomSplits,
+                                [user.id]: equalAmount
+                              });
+                            }
+                          } else {
+                            const newSplitWith = currentSplitWith.filter(id => id !== user.id);
+                            handleChange('split_with', newSplitWith);
+                            
+                            // Remove from custom splits
+                            if (editedExpense?.custom_splits) {
+                              const newCustomSplits = { ...editedExpense.custom_splits };
+                              delete newCustomSplits[user.id];
+                              handleChange('custom_splits', newCustomSplits);
+                            }
+                          }
+                        }}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <Avatar user={user} size="sm" />
+                      <div>
+                        <div className="font-medium text-gray-800">
+                          {user.id === currentUser?.id ? 'You' : user.name}
+                        </div>
+                        <div className="text-xs text-gray-500">{user.email}</div>
+                      </div>
+                    </div>
+                    
+                    {isSelected && (
+                      <div className="flex items-center gap-2 min-w-0">
+                        {editedExpense?.split_method === 'custom' ? (
+                          <div className="flex items-center gap-1 bg-gray-50 p-2 rounded border">
+                            <span className="text-sm text-gray-600 font-medium">
+                              {customSplitMode === 'amount' ? '$' : ''}
+                            </span>
+                            <input
+                              type="number"
+                              step={customSplitMode === 'amount' ? '0.01' : '0.1'}
+                              min="0"
+                              max={customSplitMode === 'percentage' ? '100' : undefined}
+                              value={editedExpense?.custom_splits?.[user.id] || ''}
+                              onChange={(e) => {
+                                const value = parseFloat(e.target.value) || 0;
+                                const currentCustomSplits = editedExpense?.custom_splits || {};
+                                handleChange('custom_splits', {
+                                  ...currentCustomSplits,
+                                  [user.id]: value
+                                });
+                              }}
+                              className="w-24 px-2 py-1 text-sm border-0 bg-white rounded focus:ring-2 focus:ring-blue-500 outline-none text-center font-medium"
+                              placeholder={customSplitMode === 'amount' ? '0.00' : '0.0'}
+                            />
+                            <span className="text-sm text-gray-600 font-medium">
+                              {customSplitMode === 'percentage' ? '%' : ''}
+                            </span>
+                            {customSplitMode === 'percentage' && editedExpense?.custom_splits?.[user.id] && (
+                              <div className="text-xs text-gray-500 ml-2 whitespace-nowrap">
+                                ≈ ${((parseFloat(editedExpense?.custom_splits?.[user.id]) || 0) / 100 * (editedExpense?.amount || 0)).toFixed(2)}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-sm font-medium text-emerald-600 bg-emerald-50 px-3 py-1 rounded">
+                            ${currentSplitAmount.toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {editedExpense?.split_with?.length === 0 && (
+              <div className="text-center py-4 text-red-500 text-sm">
+                Please select at least one person to split the expense with.
+              </div>
+            )}
+            
+            {editedExpense?.split_method === 'custom' && editedExpense?.split_with?.length > 0 && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-blue-700 font-medium">
+                    {customSplitMode === 'amount' ? 'Total Custom Split:' : 'Total Percentage:'}
+                  </span>
+                  <span className="text-blue-800 font-bold">
+                    {customSplitMode === 'amount' 
+                      ? `$${Object.values(editedExpense?.custom_splits || {}).reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0).toFixed(2)}`
+                      : `${Object.values(editedExpense?.custom_splits || {}).reduce((sum, percentage) => sum + (parseFloat(percentage) || 0), 0).toFixed(1)}%`
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-xs text-blue-600 mt-1">
+                  <span>
+                    {customSplitMode === 'amount' ? 'Expected Total:' : 'Expected Percentage:'}
+                  </span>
+                  <span>
+                    {customSplitMode === 'amount' 
+                      ? `$${(editedExpense?.amount || 0).toFixed(2)}`
+                      : '100.0%'
+                    }
+                  </span>
+                </div>
+                {customSplitMode === 'percentage' && (
+                  <div className="flex justify-between items-center text-xs text-blue-600 mt-1">
+                    <span>Amount Total:</span>
+                    <span>
+                      ${Object.values(editedExpense?.custom_splits || {}).reduce((sum, percentage) => {
+                        const amount = (parseFloat(percentage) || 0) / 100 * (editedExpense?.amount || 0);
+                        return sum + amount;
+                      }, 0).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Split Details */}
         <div>
