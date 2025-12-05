@@ -5,6 +5,7 @@ import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import { formatCurrency, convertCurrency } from '../../services/currency';
 import { updateExpense } from '../../services/database';
+import { useAlert } from '../../hooks/useAlert';
 
 const ExpenseDetailModal = ({ 
   isOpen, 
@@ -20,6 +21,9 @@ const ExpenseDetailModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [convertedAmounts, setConvertedAmounts] = useState({});
   const [isConverting, setIsConverting] = useState(false);
+  
+  // Custom alert system
+  const { showError, showSuccess } = useAlert();
   const [customSplitMode, setCustomSplitMode] = useState('amount'); // 'amount' or 'percentage'
 
   // Initialize edited expense when modal opens
@@ -151,19 +155,19 @@ const ExpenseDetailModal = ({
 
     // Validate that at least one person is selected for split
     if (!editedExpense.split_with || editedExpense.split_with.length === 0) {
-      alert('Please select at least one person to split the expense with.');
+      showError('Please select at least one person to split the expense with.');
       return;
     }
 
     // Validate amount
     if (!editedExpense.amount || editedExpense.amount <= 0) {
-      alert('Please enter a valid amount greater than 0.');
+      showError('Please enter a valid amount greater than 0.');
       return;
     }
 
     // Validate description
     if (!editedExpense.description || editedExpense.description.trim() === '') {
-      alert('Please enter a description for the expense.');
+      showError('Please enter a description for the expense.');
       return;
     }
 
@@ -174,7 +178,7 @@ const ExpenseDetailModal = ({
           .reduce((sum, amount) => sum + (parseFloat(amount) || 0), 0);
         
         if (Math.abs(customSplitTotal - editedExpense.amount) > 0.01) {
-          alert(`Custom split total ($${customSplitTotal.toFixed(2)}) must equal the expense amount ($${editedExpense.amount.toFixed(2)}).`);
+          showError(`Custom split total ($${customSplitTotal.toFixed(2)}) must equal the expense amount ($${editedExpense.amount.toFixed(2)}).`);
           return;
         }
       } else {
@@ -182,7 +186,7 @@ const ExpenseDetailModal = ({
           .reduce((sum, percentage) => sum + (parseFloat(percentage) || 0), 0);
         
         if (Math.abs(percentageTotal - 100) > 0.1) {
-          alert(`Custom split percentages must total 100%. Current total: ${percentageTotal.toFixed(1)}%`);
+          showError(`Custom split percentages must total 100%. Current total: ${percentageTotal.toFixed(1)}%`);
           return;
         }
       }
@@ -201,15 +205,16 @@ const ExpenseDetailModal = ({
       
       if (result.success) {
         setIsEditing(false);
+        showSuccess('Expense updated successfully');
         if (onUpdate) {
           onUpdate(result.data);
         }
       } else {
-        alert('Failed to update expense: ' + result.error);
+        showError('Failed to update expense: ' + result.error);
       }
     } catch (error) {
       console.error('Error updating expense:', error);
-      alert('Failed to update expense');
+      showError('Failed to update expense');
     } finally {
       setIsLoading(false);
     }

@@ -29,6 +29,10 @@ import {
 // Components
 import LoadingScreen from './components/common/LoadingScreen';
 import LandingPage from './components/auth/LandingPage';
+import Alert from './components/ui/Alert';
+import ConfirmDialog from './components/ui/ConfirmDialog';
+import { useAlert } from './hooks/useAlert';
+import { useConfirm } from './hooks/useConfirm';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import PublicRoute from './components/auth/PublicRoute';
 import AppLayout from './components/layout/AppLayout';
@@ -137,6 +141,12 @@ function AppRouter() {
   const [expenses, setExpenses] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [userPreferences, setUserPreferences] = useState({ currency: 'USD' });
+  
+  // Custom alert system
+  const { alert, showError, showSuccess, showWarning, hideAlert } = useAlert();
+  
+  // Custom confirmation system
+  const { confirmState, hideConfirm, confirmDelete } = useConfirm();
   
   // Navigation State
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -506,7 +516,7 @@ function AppRouter() {
           setExpenses(expensesResult.data);
         }
       } else {
-        alert('Failed to add expense: ' + result.error);
+        showError('Failed to add expense: ' + result.error);
         return;
       }
     }
@@ -530,7 +540,7 @@ function AppRouter() {
           setGroups(groupsResult.data);
         }
       } else {
-        alert('Failed to create group: ' + result.error);
+        showError('Failed to create group: ' + result.error);
         return;
       }
     }
@@ -552,16 +562,19 @@ function AppRouter() {
           setGroups(groupsResult.data);
         }
       } else {
-        alert('Failed to update group: ' + result.error);
+        showError('Failed to update group: ' + result.error);
         throw new Error(result.error);
       }
     }
   };
 
   const handleDeleteGroup = async (group) => {
-    if (!confirm(`Are you sure you want to delete "${group.name}"? This action cannot be undone.`)) {
-      return;
-    }
+    confirmDelete(group.name, async () => {
+      await performDeleteGroup(group);
+    });
+  };
+
+  const performDeleteGroup = async (group) => {
 
     if (isDemoMode) {
       // Demo mode - remove from local state
@@ -582,7 +595,7 @@ function AppRouter() {
           setExpenses(expensesResult.data);
         }
       } else {
-        alert('Failed to delete group: ' + result.error);
+        showError('Failed to delete group: ' + result.error);
       }
     }
   };
@@ -602,7 +615,7 @@ function AppRouter() {
       if (result.success) {
         setUserPreferences(preferences);
       } else {
-        alert('Failed to update preferences: ' + result.error);
+        showError('Failed to update preferences: ' + result.error);
         throw new Error(result.error);
       }
     }
@@ -668,7 +681,7 @@ function AppRouter() {
           setUsers(usersResult.data);
         }
       } else {
-        alert('Failed to add friend: ' + result.error);
+        showError('Failed to add friend: ' + result.error);
         throw new Error(result.error);
       }
     }
@@ -690,16 +703,19 @@ function AppRouter() {
           setUsers(usersResult.data);
         }
       } else {
-        alert('Failed to update user: ' + result.error);
+        showError('Failed to update user: ' + result.error);
         throw new Error(result.error);
       }
     }
   };
 
   const handleDeleteUser = async (user) => {
-    if (!confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
-      return;
-    }
+    confirmDelete(user.name, async () => {
+      await performDeleteUser(user);
+    });
+  };
+
+  const performDeleteUser = async (user) => {
 
     if (isDemoMode) {
       // Demo mode - remove from local state
@@ -723,7 +739,7 @@ function AppRouter() {
           setGroups(groupsResult.data);
         }
       } else {
-        alert('Failed to delete user: ' + result.error);
+        showError('Failed to delete user: ' + result.error);
       }
     }
   };
@@ -777,7 +793,7 @@ function AppRouter() {
     } catch (error) {
       console.error('Google login error:', error);
       setIsGoogleLoading(false);
-      alert('Login failed. Please try again.');
+      showError('Login failed. Please try again.');
     }
   };
 
@@ -785,7 +801,7 @@ function AppRouter() {
     console.log('handleGoogleLogin called');
     
     if (!window.google || !window.google.accounts) {
-      alert('Google authentication is still loading. Please wait a moment and try again.');
+      showWarning('Google authentication is still loading. Please wait a moment and try again.');
       return;
     }
     
@@ -851,11 +867,11 @@ function AppRouter() {
           
           switch (reason) {
             case 'browser_not_supported':
-              alert('Your browser doesn\'t support Google Sign-In. Please try a different browser.');
+              showError('Your browser doesn\'t support Google Sign-In. Please try a different browser.');
               break;
             case 'unregistered_origin':
               console.error('Domain not authorized for Google OAuth');
-              alert('Authentication setup issue. Please ensure localhost:5173 is authorized.');
+              showError('Authentication setup issue. Please ensure localhost:5173 is authorized.');
               break;
             case 'suppressed_by_user':
               console.log('User previously dismissed Google sign-in');
@@ -1109,6 +1125,18 @@ function AppRouter() {
         onClose={() => setIsSettingsModalOpen(false)}
         userPreferences={userPreferences}
         onUpdatePreferences={handleUpdatePreferences}
+      />
+
+      {/* Custom Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        onClose={hideConfirm}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        cancelText={confirmState.cancelText}
+        variant={confirmState.variant}
       />
     </>
   );
