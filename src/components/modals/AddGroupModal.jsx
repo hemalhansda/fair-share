@@ -14,6 +14,7 @@ const AddGroupModal = ({
   const [groupName, setGroupName] = useState('');
   const [groupType, setGroupType] = useState('General');
   const [selectedMembers, setSelectedMembers] = useState([currentUser?.id || '']);
+  const [emailInput, setEmailInput] = useState('');
 
   const groupTypes = [
     'Trip', 'Home', 'General', 'Entertainment', 
@@ -26,7 +27,12 @@ const AddGroupModal = ({
 
     // Always include current user in members
     const allMembers = currentUser ? [currentUser.id, ...selectedMembers] : selectedMembers;
-    const uniqueMembers = [...new Set(allMembers)]; // Remove duplicates
+    let uniqueMembers = [...new Set(allMembers)]; // Remove duplicates
+    
+    // Add email if provided
+    if (emailInput.trim() && emailInput.includes('@')) {
+      uniqueMembers.push(emailInput.trim().toLowerCase());
+    }
 
     const group = {
       name: groupName.trim(),
@@ -43,6 +49,7 @@ const AddGroupModal = ({
     setGroupName('');
     setGroupType('General');
     setSelectedMembers([currentUser?.id || '']);
+    setEmailInput('');
     onClose();
   };
 
@@ -53,6 +60,8 @@ const AddGroupModal = ({
         : [...prev, userId]
     );
   };
+
+
 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title="Create Group">
@@ -90,6 +99,20 @@ const AddGroupModal = ({
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Add Members
           </label>
+          
+          {/* Simple email input */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Add member by email (optional)
+            </label>
+            <input
+              type="email"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter email address"
+            />
+          </div>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {/* Always show current user first */}
             {currentUser && (
@@ -142,7 +165,7 @@ const AddGroupModal = ({
           {(selectedMembers.length > 0 || currentUser) && (
             <div className="mt-3 p-2 bg-gray-50 rounded-lg">
               <div className="text-xs text-gray-600 mb-1">
-                Selected members ({selectedMembers.length + (currentUser ? 1 : 0)})
+                Selected members ({selectedMembers.length + (currentUser ? 1 : 0)}{emailInput.trim() && emailInput.includes('@') ? ' + 1 email' : ''})
               </div>
               <div className="flex flex-wrap gap-1">
                 {/* Always show current user first */}
@@ -167,6 +190,12 @@ const AddGroupModal = ({
                     </span>
                   ) : null;
                 })}
+                {/* Show email if entered */}
+                {emailInput.trim() && emailInput.includes('@') && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                    {emailInput.trim()}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -178,7 +207,7 @@ const AddGroupModal = ({
           </Button>
           <Button 
             type="submit" 
-            disabled={!groupName.trim() || selectedMembers.length === 0}
+            disabled={!groupName.trim()}
             className="flex-1"
           >
             <Users className="w-4 h-4 mr-2" />

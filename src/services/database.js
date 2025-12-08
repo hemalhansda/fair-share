@@ -4,12 +4,16 @@ import { supabase } from '../lib/supabaseClient.js'
 
 export async function createOrUpdateUser(googleUser) {
   try {
-    // First check if user already exists
+    // First check if user already exists with google_id
     const { data: existingUser } = await supabase
       .from('users')
       .select('*')
       .eq('google_id', googleUser.id)
       .maybeSingle()
+
+    let userData;
+    let isNewUser = false;
+    let autoJoinedGroups = 0;
 
     if (existingUser) {
       // Update existing user
@@ -26,23 +30,42 @@ export async function createOrUpdateUser(googleUser) {
         .single()
 
       if (error) throw error
-      return { success: true, data }
+      userData = data;
     } else {
-      // Create new user (let Supabase generate UUID for id)
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{
-          google_id: googleUser.id,
-          name: googleUser.name,
-          email: googleUser.email,
-          avatar: googleUser.avatar,
-          picture: googleUser.picture
-        }])
-        .select()
-        .single()
+      // Check if there's a placeholder user with this email
+      const placeholderResult = await convertPlaceholderUser(googleUser.email, googleUser);
+      
+      if (placeholderResult.success && placeholderResult.data) {
+        // Placeholder user was converted successfully
+        userData = placeholderResult.data;
+        autoJoinedGroups = placeholderResult.groupsJoined;
+        isNewUser = true;
+        console.log(`Converted placeholder user, joined ${autoJoinedGroups} groups`);
+      } else {
+        // Create new user (let Supabase generate UUID for id)
+        const { data, error } = await supabase
+          .from('users')
+          .insert([{
+            google_id: googleUser.id,
+            name: googleUser.name,
+            email: googleUser.email,
+            avatar: googleUser.avatar,
+            picture: googleUser.picture
+          }])
+          .select()
+          .single()
 
-      if (error) throw error
-      return { success: true, data }
+        if (error) throw error
+        userData = data;
+        isNewUser = true;
+      }
+    }
+
+    return { 
+      success: true, 
+      data: userData,
+      isNewUser,
+      autoJoinedGroups: autoJoinedGroups
     }
 
     if (error) throw error
@@ -312,6 +335,7 @@ export async function createGroup(groupData, currentUserId) {
     // Convert member IDs to UUIDs and add members to the group
     const memberUuids = []
     const processedMembers = new Set() // Track processed members to avoid duplicates
+    const pendingInvitations = [] // Track email invitations to create
     
     // Always include the current user first
     memberUuids.push(user.id)
@@ -325,30 +349,66 @@ export async function createGroup(groupData, currentUserId) {
       
       let finalUuid = null
       
-      // Try to find the user by UUID first, then by google_id
-      let { data: memberUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('id', memberId)
-        .maybeSingle()
+      // Check if memberId looks like an email address
+      const isEmail = memberId.includes('@') && memberId.includes('.')
       
-      if (!memberUser) {
-        // Try by google_id if UUID lookup failed
-        const { data: memberByGoogleId } = await supabase
+      if (isEmail) {
+        // Try to find existing user by email
+        const { data: userByEmail } = await supabase
           .from('users')
           .select('id')
-          .eq('google_id', memberId)
+          .eq('email', memberId.toLowerCase())
           .maybeSingle()
         
-        if (memberByGoogleId) {
-          memberUser = memberByGoogleId
+        if (userByEmail) {
+          finalUuid = userByEmail.id
+        } else {
+          // User doesn't exist yet, create placeholder user entry
+          console.log(`Creating placeholder user for email: ${memberId}`)
+          const { data: placeholderUser, error: placeholderError } = await supabase
+            .from('users')
+            .insert([{
+              email: memberId.toLowerCase(),
+              name: memberId.split('@')[0], // Use part before @ as temporary name
+              avatar: memberId.substring(0, 2).toUpperCase(),
+              google_id: null // No google_id indicates this is a placeholder
+            }])
+            .select()
+            .single()
+          
+          if (placeholderError) {
+            console.error('Error creating placeholder user:', placeholderError)
+          } else {
+            finalUuid = placeholderUser.id
+            console.log(`Created placeholder user with UUID: ${finalUuid}`)
+          }
         }
-      }
-      
-      if (memberUser) {
-        finalUuid = memberUser.id
       } else {
-        console.warn(`Could not find user with ID: ${memberId}`)
+        // Try to find the user by UUID first, then by google_id
+        let { data: memberUser } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', memberId)
+          .maybeSingle()
+        
+        if (!memberUser) {
+          // Try by google_id if UUID lookup failed
+          const { data: memberByGoogleId } = await supabase
+            .from('users')
+            .select('id')
+            .eq('google_id', memberId)
+            .maybeSingle()
+          
+          if (memberByGoogleId) {
+            memberUser = memberByGoogleId
+          }
+        }
+        
+        if (memberUser) {
+          finalUuid = memberUser.id
+        } else {
+          console.warn(`Could not find user with ID: ${memberId}`)
+        }
       }
       
       // Only add if we haven't processed this UUID yet
@@ -371,7 +431,10 @@ export async function createGroup(groupData, currentUserId) {
 
     if (membersError) throw membersError
 
-    return { success: true, data: group }
+    return { 
+      success: true, 
+      data: group
+    }
   } catch (error) {
     console.error('Error creating group:', error)
     console.error('Error details:', {
@@ -1423,5 +1486,208 @@ export async function getExpenseImageUrl(filePath) {
   } catch (error) {
     console.error('Error getting expense image URL:', error)
     return { success: false, error: error.message }
+  }
+}
+
+// ===== PENDING INVITATIONS FUNCTIONS =====
+
+export async function createPendingInvitation(groupId, email, invitedBy) {
+  try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      console.warn('Supabase not configured, skipping invitation creation')
+      return { success: false, error: 'Database not available in demo mode' }
+    }
+
+    // Get the inviter's UUID from their google_id
+    const { data: inviterUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('google_id', invitedBy)
+      .single()
+
+    if (!inviterUser) {
+      throw new Error('Inviter not found')
+    }
+
+    // Create pending invitation
+    const { data: invitation, error } = await supabase
+      .from('pending_invitations')
+      .insert([{
+        group_id: groupId,
+        email: email.toLowerCase(),
+        invited_by: inviterUser.id
+      }])
+      .select()
+      .single()
+
+    if (error) {
+      // If it's a duplicate error, that's okay - invitation already exists
+      if (error.code === '23505') {
+        return { success: true, message: 'Invitation already exists' }
+      }
+      throw error
+    }
+
+    return { success: true, data: invitation }
+  } catch (error) {
+    console.error('Error creating pending invitation:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function getPendingInvitationsForEmail(email) {
+  try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] } // Return empty array in demo mode
+    }
+
+    const { data: invitations, error } = await supabase
+      .from('pending_invitations')
+      .select(`
+        id,
+        group_id,
+        email,
+        created_at,
+        groups (
+          id,
+          name,
+          type,
+          created_by
+        )
+      `)
+      .eq('email', email.toLowerCase())
+
+    if (error) throw error
+
+    return { success: true, data: invitations || [] }
+  } catch (error) {
+    console.error('Error getting pending invitations:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export async function convertPlaceholderUser(userEmail, googleUserData) {
+  try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      return { success: true, groupsJoined: 0 }
+    }
+
+    // Find placeholder user with this email
+    const { data: placeholderUser, error: findError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', userEmail.toLowerCase())
+      .is('google_id', null) // Placeholder users have null google_id
+      .maybeSingle()
+
+    if (findError) throw findError
+
+    if (!placeholderUser) {
+      // No placeholder user found
+      return { success: false, groupsJoined: 0 }
+    }
+
+    console.log(`Converting placeholder user ${placeholderUser.id} to real user`)
+
+    // Update the placeholder user with real Google user data
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update({
+        google_id: googleUserData.id,
+        name: googleUserData.name,
+        avatar: googleUserData.avatar,
+        picture: googleUserData.picture
+      })
+      .eq('id', placeholderUser.id)
+      .select()
+      .single()
+
+    if (updateError) throw updateError
+
+    // Count how many groups this user is now a member of
+    const { data: memberships, error: membershipError } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', placeholderUser.id)
+
+    if (membershipError) throw membershipError
+
+    const groupsJoined = memberships ? memberships.length : 0
+
+    return { 
+      success: true, 
+      data: updatedUser,
+      groupsJoined: groupsJoined,
+      message: groupsJoined > 0 ? `Automatically joined ${groupsJoined} group(s)` : 'No groups to join'
+    }
+  } catch (error) {
+    console.error('Error converting placeholder user:', error)
+    return { success: false, error: error.message, groupsJoined: 0 }
+  }
+}
+
+export async function acceptPendingInvitations(userEmail, userUuid) {
+  try {
+    // Check if Supabase is configured
+    if (!isSupabaseConfigured()) {
+      return { success: true, message: 'No invitations to process in demo mode' }
+    }
+
+    // Get all pending invitations for this email
+    const { data: invitations, error: fetchError } = await supabase
+      .from('pending_invitations')
+      .select('group_id')
+      .eq('email', userEmail.toLowerCase())
+
+    if (fetchError) throw fetchError
+
+    if (!invitations || invitations.length === 0) {
+      return { success: true, message: 'No pending invitations found', groupsJoined: 0 }
+    }
+
+    // Only proceed if userUuid is provided
+    if (!userUuid) {
+      return { success: true, message: 'No user UUID provided', groupsJoined: 0 }
+    }
+
+    // Add user to all groups they were invited to
+    const memberInserts = invitations.map(inv => ({
+      group_id: inv.group_id,
+      user_id: userUuid
+    }))
+
+    const { error: insertError } = await supabase
+      .from('group_members')
+      .insert(memberInserts)
+
+    if (insertError) {
+      // Handle duplicate membership gracefully
+      if (insertError.code !== '23505') {
+        throw insertError
+      }
+    }
+
+    // Delete the pending invitations
+    const { error: deleteError } = await supabase
+      .from('pending_invitations')
+      .delete()
+      .eq('email', userEmail.toLowerCase())
+
+    if (deleteError) {
+      console.error('Error deleting pending invitations:', deleteError)
+      // Don't fail the process if deletion fails
+    }
+
+    return { 
+      success: true, 
+      message: `Joined ${invitations.length} group(s) automatically`,
+      groupsJoined: invitations.length
+    }
+  } catch (error) {
+    console.error('Error accepting pending invitations:', error)
+    return { success: false, error: error.message, groupsJoined: 0 }
   }
 }

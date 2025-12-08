@@ -56,12 +56,23 @@ CREATE TABLE expense_splits (
   UNIQUE(expense_id, user_id)
 );
 
+-- Pending invitations table (for email-based group invitations)
+CREATE TABLE pending_invitations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  invited_by UUID REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(group_id, email) -- Prevent duplicate invitations to the same group
+);
+
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expense_splits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pending_invitations ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 -- Users can read all users but only update their own profile
@@ -145,6 +156,23 @@ CREATE POLICY "Expense payers can manage splits" ON expense_splits
     )
   );
 
+-- Pending invitations policies
+CREATE POLICY "Group members can view pending invitations" ON pending_invitations
+  FOR SELECT USING (
+    group_id IN (
+      SELECT group_id FROM group_members 
+      WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Group creators can manage pending invitations" ON pending_invitations
+  FOR ALL USING (
+    group_id IN (
+      SELECT id FROM groups 
+      WHERE created_by = auth.uid()
+    )
+  );
+
 -- Create indexes for better performance
 CREATE INDEX idx_group_members_user_id ON group_members(user_id);
 CREATE INDEX idx_group_members_group_id ON group_members(group_id);
@@ -152,6 +180,8 @@ CREATE INDEX idx_expenses_paid_by ON expenses(paid_by);
 CREATE INDEX idx_expenses_group_id ON expenses(group_id);
 CREATE INDEX idx_expense_splits_user_id ON expense_splits(user_id);
 CREATE INDEX idx_expense_splits_expense_id ON expense_splits(expense_id);
+CREATE INDEX idx_pending_invitations_email ON pending_invitations(email);
+CREATE INDEX idx_pending_invitations_group_id ON pending_invitations(group_id);
 
 -- Function to automatically update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

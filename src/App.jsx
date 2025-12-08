@@ -823,11 +823,14 @@ function AppRouter() {
       };
       
       // Create or update user in database (if not in demo mode)
+      let autoJoinedGroups = 0;
       if (!isDemoMode) {
         const result = await createOrUpdateUser(googleUserData);
         if (!result.success) {
           console.error('Failed to create/update user:', result.error);
           // Continue anyway, might be network issue
+        } else {
+          autoJoinedGroups = result.autoJoinedGroups || 0;
         }
       }
       
@@ -844,6 +847,12 @@ function AppRouter() {
         setIsAuthenticated(true);
         setShowLanding(false);
         setIsGoogleLoading(false);
+        
+        // Show success message if user was auto-added to groups
+        if (autoJoinedGroups > 0) {
+          showAlert(`Welcome! You've been automatically added to ${autoJoinedGroups} group${autoJoinedGroups > 1 ? 's' : ''} you were invited to.`, 'success');
+        }
+        
         navigate('/dashboard');
       }, 1500);
       
