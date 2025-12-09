@@ -28,6 +28,7 @@ const AddExpenseModal = ({
   const [expenseTime, setExpenseTime] = useState(new Date().toTimeString().slice(0, 5)); // Current time
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Update groupId when selectedGroup changes or modal opens
   React.useEffect(() => {
@@ -40,54 +41,61 @@ const AddExpenseModal = ({
     }
   }, [isOpen, selectedGroup]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!description.trim() || !amount || splitWith.length === 0 || !isCustomSplitValid()) return;
 
-    // Calculate actual split amounts for each user
-    let finalSplits = {};
-    
-    if (splitMethod === 'custom') {
-      if (customSplitType === 'percentage') {
-        // Convert percentages to actual amounts
-        const expenseAmount = parseFloat(amount);
-        splitWith.forEach(userId => {
-          const percentage = customSplits[userId] || 0;
-          finalSplits[userId] = (expenseAmount * percentage) / 100;
-        });
+    setIsLoading(true);
+
+    try {
+      // Calculate actual split amounts for each user
+      let finalSplits = {};
+      
+      if (splitMethod === 'custom') {
+        if (customSplitType === 'percentage') {
+          // Convert percentages to actual amounts
+          const expenseAmount = parseFloat(amount);
+          splitWith.forEach(userId => {
+            const percentage = customSplits[userId] || 0;
+            finalSplits[userId] = (expenseAmount * percentage) / 100;
+          });
+        } else {
+          // Use amounts directly
+          finalSplits = { ...customSplits };
+        }
       } else {
-        // Use amounts directly
-        finalSplits = { ...customSplits };
+        // Equal split
+        const expenseAmount = parseFloat(amount);
+        const splitAmount = expenseAmount / splitWith.length;
+        splitWith.forEach(userId => {
+          finalSplits[userId] = splitAmount;
+        });
       }
-    } else {
-      // Equal split
-      const expenseAmount = parseFloat(amount);
-      const splitAmount = expenseAmount / splitWith.length;
-      splitWith.forEach(userId => {
-        finalSplits[userId] = splitAmount;
-      });
+
+      // Create datetime from date and time inputs
+      const expenseDateTime = new Date(`${expenseDate}T${expenseTime}`);
+      
+      const expense = {
+        description: description.trim(),
+        amount: parseFloat(amount),
+        currency: currency,
+        paid_by: paidBy,
+        group_id: groupId || null,
+        split_with: splitWith,
+        split_method: splitMethod,
+        custom_splits: splitMethod === 'custom' ? finalSplits : null,
+        custom_split_type: splitMethod === 'custom' ? customSplitType : null,
+        category: category,
+        date: expenseDateTime.toISOString(), // Store as ISO string
+        imageFile: imageFile // Include image file for upload
+      };
+
+      await onAddExpense(expense);
+      handleClose();
+    } catch (error) {
+      console.error('Error adding expense:', error);
+      setIsLoading(false);
     }
-
-    // Create datetime from date and time inputs
-    const expenseDateTime = new Date(`${expenseDate}T${expenseTime}`);
-    
-    const expense = {
-      description: description.trim(),
-      amount: parseFloat(amount),
-      currency: currency,
-      paid_by: paidBy,
-      group_id: groupId || null,
-      split_with: splitWith,
-      split_method: splitMethod,
-      custom_splits: splitMethod === 'custom' ? finalSplits : null,
-      custom_split_type: splitMethod === 'custom' ? customSplitType : null,
-      category: category,
-      date: expenseDateTime.toISOString(), // Store as ISO string
-      imageFile: imageFile // Include image file for upload
-    };
-
-    onAddExpense(expense);
-    handleClose();
   };
 
   const handleClose = () => {
@@ -105,6 +113,7 @@ const AddExpenseModal = ({
     setExpenseTime(new Date().toTimeString().slice(0, 5));
     setImageFile(null);
     setImagePreview(null);
+    setIsLoading(false);
     onClose();
   };
 
@@ -576,15 +585,28 @@ const AddExpenseModal = ({
         )}
 
         <div className="flex gap-3 pt-4">
-          <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
+          <Button 
+            type="button" 
+            variant="secondary" 
+            onClick={handleClose} 
+            className="flex-1"
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button 
             type="submit" 
-            disabled={!description.trim() || !amount || splitWith.length === 0 || !isCustomSplitValid()}
+            disabled={!description.trim() || !amount || splitWith.length === 0 || !isCustomSplitValid() || isLoading}
             className="flex-1"
           >
-            Add Expense
+            {isLoading ? (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Adding...
+              </div>
+            ) : (
+              'Add Expense'
+            )}
           </Button>
         </div>
       </form>
