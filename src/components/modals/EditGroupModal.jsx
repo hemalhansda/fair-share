@@ -10,6 +10,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
     type: 'General',
     members: []
   });
+  const [emailInput, setEmailInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -26,6 +27,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
         type: group.type || 'General',
         members: group.members || []
       });
+      setEmailInput('');
       setError('');
     }
   }, [isOpen, group]);
@@ -39,6 +41,27 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
     }));
   };
 
+  const handleAddEmailMember = () => {
+    if (emailInput.trim() && emailInput.includes('@')) {
+      const email = emailInput.trim().toLowerCase();
+      // Check if email is already in the members list
+      if (!formData.members.includes(email)) {
+        setFormData(prev => ({
+          ...prev,
+          members: [...prev.members, email]
+        }));
+      }
+      setEmailInput('');
+    }
+  };
+
+  const handleEmailKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddEmailMember();
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -46,8 +69,8 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
       return;
     }
 
-    if (formData.members.length < 2) {
-      setError('Please select at least 2 members including yourself');
+    if (formData.members.length < 1) {
+      setError('Please select at least one other member');
       return;
     }
 
@@ -70,6 +93,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
         type: 'General',
         members: []
       });
+      setEmailInput('');
     } catch (error) {
       setError(error.message || 'Failed to update group');
     } finally {
@@ -140,6 +164,33 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
             Members ({formData.members.length + 1} selected)
           </label>
           
+          {/* Email input for adding new users */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-600 mb-2">
+              Add member by email (optional)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                onKeyPress={handleEmailKeyPress}
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                placeholder="Enter email address and press Enter"
+                disabled={isSubmitting}
+              />
+              <Button
+                type="button"
+                onClick={handleAddEmailMember}
+                disabled={!emailInput.trim() || !emailInput.includes('@') || isSubmitting}
+                size="sm"
+                variant="secondary"
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+          
           {/* Current user (always included) */}
           <div className="mb-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
             <div className="flex items-center gap-3">
@@ -173,7 +224,34 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
                 </div>
               </label>
             ))}
-            {availableUsers.length === 0 && (
+            
+            {/* Email members */}
+            {formData.members.filter(member => typeof member === 'string' && member.includes('@')).map(email => (
+              <div
+                key={email}
+                className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+              >
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-medium text-gray-800">{email}</div>
+                  <div className="text-xs text-gray-500">Invited by email</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleMemberToggle(email)}
+                  className="text-red-500 hover:text-red-700"
+                  disabled={isSubmitting}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+            
+            {availableUsers.length === 0 && formData.members.filter(member => typeof member === 'string' && member.includes('@')).length === 0 && (
               <div className="p-4 text-center text-gray-400">
                 <User className="w-8 h-8 mx-auto mb-2 text-gray-300" />
                 <p className="text-sm">No friends available</p>
@@ -199,7 +277,10 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
             className="flex-1"
           >
             {isSubmitting ? (
-              'Updating...'
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Updating...
+              </>
             ) : (
               <>
                 <Save size={16} className="mr-2" />

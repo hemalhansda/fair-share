@@ -1145,6 +1145,7 @@ function AppRouter() {
                 setShowAddExpense={() => setIsExpenseModalOpen(true)}
                 userCurrency={userPreferences.currency}
                 onEditExpense={handleEditExpense}
+                onUpdateGroup={handleEditGroup}
               />
             } 
           />

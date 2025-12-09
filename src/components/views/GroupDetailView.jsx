@@ -1,12 +1,13 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ArrowLeft, Users, Plus, Receipt } from 'lucide-react';
+import { ArrowLeft, Users, Plus, Receipt, Settings } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import ExpenseItem from '../expenses/ExpenseItem';
 import ExpenseDetailModal from '../modals/ExpenseDetailModal';
+import EditGroupModal from '../modals/EditGroupModal';
 import { formatCurrency, convertCurrency } from '../../services/currency';
-import { calculateBalances } from '../../services/database';
+import { calculateBalances, updateGroup } from '../../services/database';
 
 const GroupDetailView = ({ 
   groups,
@@ -16,7 +17,8 @@ const GroupDetailView = ({
   formatMoney, 
   setShowAddExpense,
   userCurrency = 'USD',
-  onEditExpense
+  onEditExpense,
+  onUpdateGroup
 }) => {
   const navigate = useNavigate();
   const { groupId } = useParams();
@@ -25,8 +27,29 @@ const GroupDetailView = ({
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [showExpenseDetail, setShowExpenseDetail] = useState(false);
   
+  // State for edit group modal
+  const [showEditGroup, setShowEditGroup] = useState(false);
+  
   // Find the group by ID
   const group = groups?.find(g => g.id === groupId);
+
+  // Handle group edit
+  const handleEditGroup = async (groupId, groupData) => {
+    try {
+      const result = await updateGroup(groupId, groupData);
+      if (result.success) {
+        // Call the parent handler to refresh group data
+        if (onUpdateGroup) {
+          onUpdateGroup(groupId, groupData);
+        }
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('Failed to update group:', error);
+      throw error;
+    }
+  };
 
   // Filter expenses for this group (memoized to prevent infinite re-renders)
   const groupExpenses = useMemo(() => {
@@ -167,24 +190,37 @@ const GroupDetailView = ({
   return (
     <div className="space-y-6 scrollbar-hide overflow-y-auto">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/groups')}
+            className="p-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <Users className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-800">{group.name}</h1>
+              <p className="text-sm text-gray-500">{group.type} • {groupMembers.length} members</p>
+            </div>
+          </div>
+        </div>
+        
+        {/* Edit button - visible for all users */}
         <Button 
           variant="ghost" 
           size="sm" 
-          onClick={() => navigate('/groups')}
+          onClick={() => setShowEditGroup(true)}
           className="p-2"
+          title="Edit Group"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <Settings className="w-4 h-4" />
         </Button>
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-            <Users className="w-6 h-6 text-blue-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-800">{group.name}</h1>
-            <p className="text-sm text-gray-500">{group.type} • {groupMembers.length} members</p>
-          </div>
-        </div>
       </div>
 
       {/* Who owes whom section */}
@@ -317,6 +353,16 @@ const GroupDetailView = ({
           setShowExpenseDetail(false);
           setSelectedExpense(null);
         }}
+      />
+
+      {/* Edit Group Modal */}
+      <EditGroupModal
+        isOpen={showEditGroup}
+        onClose={() => setShowEditGroup(false)}
+        group={group}
+        users={users}
+        currentUser={currentUser}
+        onEditGroup={handleEditGroup}
       />
     </div>
   );

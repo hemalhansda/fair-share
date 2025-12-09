@@ -488,6 +488,7 @@ export async function getUserGroups(userId) {
           id: group.id,
           name: group.name,
           type: group.type,
+          created_by: group.created_by,
           members: members?.map(m => m.user_id) || []
         }
       })

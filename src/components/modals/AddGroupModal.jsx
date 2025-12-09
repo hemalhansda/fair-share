@@ -15,41 +15,52 @@ const AddGroupModal = ({
   const [groupType, setGroupType] = useState('General');
   const [selectedMembers, setSelectedMembers] = useState([currentUser?.id || '']);
   const [emailInput, setEmailInput] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const groupTypes = [
     'Trip', 'Home', 'General', 'Entertainment', 
     'Food & Dining', 'Transportation', 'Shopping'
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!groupName.trim()) return;
+    if (!groupName.trim() || isSubmitting) return;
 
-    // Always include current user in members
-    const allMembers = currentUser ? [currentUser.id, ...selectedMembers] : selectedMembers;
-    let uniqueMembers = [...new Set(allMembers)]; // Remove duplicates
-    
-    // Add email if provided
-    if (emailInput.trim() && emailInput.includes('@')) {
-      uniqueMembers.push(emailInput.trim().toLowerCase());
+    setIsSubmitting(true);
+
+    try {
+      // Always include current user in members
+      const allMembers = currentUser ? [currentUser.id, ...selectedMembers] : selectedMembers;
+      let uniqueMembers = [...new Set(allMembers)]; // Remove duplicates
+      
+      // Add email if provided
+      if (emailInput.trim() && emailInput.includes('@')) {
+        uniqueMembers.push(emailInput.trim().toLowerCase());
+      }
+
+      const group = {
+        name: groupName.trim(),
+        type: groupType,
+        members: uniqueMembers,
+        created_by: currentUser?.id
+      };
+
+      await onAddGroup(group);
+      handleClose();
+    } catch (error) {
+      console.error('Failed to create group:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const group = {
-      name: groupName.trim(),
-      type: groupType,
-      members: uniqueMembers,
-      created_by: currentUser?.id
-    };
-
-    onAddGroup(group);
-    handleClose();
   };
 
   const handleClose = () => {
+    if (isSubmitting) return;
     setGroupName('');
     setGroupType('General');
     setSelectedMembers([currentUser?.id || '']);
     setEmailInput('');
+    setIsSubmitting(false);
     onClose();
   };
 
@@ -202,16 +213,25 @@ const AddGroupModal = ({
         </div>
 
         <div className="flex gap-3 pt-4">
-          <Button type="button" variant="secondary" onClick={handleClose} className="flex-1">
+          <Button type="button" variant="secondary" onClick={handleClose} disabled={isSubmitting} className="flex-1">
             Cancel
           </Button>
           <Button 
             type="submit" 
-            disabled={!groupName.trim()}
+            disabled={!groupName.trim() || isSubmitting}
             className="flex-1"
           >
-            <Users className="w-4 h-4 mr-2" />
-            Create Group
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                Creating...
+              </>
+            ) : (
+              <>
+                <Users className="w-4 h-4 mr-2" />
+                Create Group
+              </>
+            )}
           </Button>
         </div>
       </form>
