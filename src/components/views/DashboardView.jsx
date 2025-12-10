@@ -78,10 +78,11 @@ const DashboardView = ({
             </div>
           );
         })}
-        {Object.keys(balances.details).length === 0 && (
+        {Object.entries(balances.details).filter(([_, amt]) => Math.abs(amt) > 0.01).length === 0 && (
           <div className="p-8 text-center text-gray-400">
             <Check className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-            <p>You are all settled up!</p>
+            <p className="text-sm font-medium">You're all settled up!</p>
+            <p className="text-xs mt-1">No outstanding balances with friends</p>
           </div>
         )}
       </div>
