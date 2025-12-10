@@ -64,6 +64,7 @@ import {
   createExpense,
   updateExpense,
   getUserExpenses,
+  getUserExpensesPaginated,
   calculateBalances,
   updateUserPreferences,
   getUserPreferences,
@@ -147,6 +148,11 @@ function AppRouter() {
   const [currentUser, setCurrentUser] = useState(null);
   const [userPreferences, setUserPreferences] = useState({ currency: 'USD' });
   
+  // Pagination state for activity tab
+  const [expensesPage, setExpensesPage] = useState(1);
+  const [hasMoreExpenses, setHasMoreExpenses] = useState(false);
+  const [totalExpensesCount, setTotalExpensesCount] = useState(0);
+  
   // Custom alert system
   const { alert, showError, showSuccess, showWarning, hideAlert } = useAlert();
   
@@ -171,6 +177,25 @@ function AppRouter() {
     setActiveTab(tab);
     setSelectedGroup(null);
     navigate(`/${tab}`);
+  };
+  
+  // Load more expenses for pagination
+  const loadMoreExpenses = async () => {
+    if (!currentUser || !hasMoreExpenses) return;
+    
+    try {
+      const nextPage = expensesPage + 1;
+      const result = await getUserExpensesPaginated(currentUser.id, nextPage, 20);
+      
+      if (result.success) {
+        setExpenses(prev => [...prev, ...result.data]);
+        setExpensesPage(nextPage);
+        setHasMoreExpenses(result.hasMore);
+        setTotalExpensesCount(result.totalCount);
+      }
+    } catch (error) {
+      console.error('Error loading more expenses:', error);
+    }
   };
   
   // Modals State
@@ -393,9 +418,12 @@ function AppRouter() {
       }
 
       // Load user's expenses (only expenses they're involved in)
-      const expensesResult = await getUserExpenses(currentUser.id);
+      const expensesResult = await getUserExpensesPaginated(currentUser.id, 1, 20);
       if (expensesResult.success) {
         setExpenses(expensesResult.data);
+        setExpensesPage(1);
+        setHasMoreExpenses(expensesResult.hasMore);
+        setTotalExpensesCount(expensesResult.totalCount);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -1205,6 +1233,9 @@ function AppRouter() {
                 userCurrency={userPreferences.currency}
                 isLoading={isDataLoading}
                 onEditExpense={handleEditExpense}
+                onLoadMore={loadMoreExpenses}
+                hasMore={hasMoreExpenses}
+                totalCount={totalExpensesCount}
               />
             } 
           />

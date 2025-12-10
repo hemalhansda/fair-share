@@ -1086,6 +1086,157 @@ export async function getUserExpenses(userId) {
   }
 }
 
+export async function getUserExpensesPaginated(userId, page = 1, pageSize = 20) {
+  try {
+    // First get the user's UUID from their google_id
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('google_id', userId)
+      .single()
+
+    if (!user) {
+      return { success: true, data: [], hasMore: false, totalCount: 0 }
+    }
+
+    // Get all groups the user is a member of
+    const { data: userGroups } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id)
+
+    const userGroupIds = userGroups?.map(g => g.group_id) || []
+
+    // Get expense IDs where user is in the splits (to find expenses user participates in)
+    const { data: userSplits, error: userSplitsError } = await supabase
+      .from('expense_splits')
+      .select('expense_id')
+      .eq('user_id', user.id)
+
+    if (userSplitsError) throw userSplitsError
+
+    const expenseIdsFromSplits = userSplits?.map(s => s.expense_id) || []
+
+    // Build the query to get all expense IDs (both paid by user and in splits)
+    // We need to get IDs first to properly paginate
+    const allExpenseIds = new Set([...expenseIdsFromSplits])
+    
+    // Add expenses paid by user
+    const { data: paidExpenseIds, error: paidIdsError } = await supabase
+      .from('expenses')
+      .select('id, group_id, created_at')
+      .eq('paid_by', user.id)
+    
+    if (paidIdsError) throw paidIdsError
+    
+    // Filter and add paid expense IDs
+    paidExpenseIds?.forEach(exp => {
+      if (!exp.group_id || userGroupIds.includes(exp.group_id)) {
+        allExpenseIds.add(exp.id)
+      }
+    })
+
+    // Convert to array and sort by getting full data
+    const idsArray = Array.from(allExpenseIds)
+    
+    if (idsArray.length === 0) {
+      return { success: true, data: [], hasMore: false, totalCount: 0 }
+    }
+
+    // Get full expense data for sorting
+    const { data: allExpensesForSort, error: sortError } = await supabase
+      .from('expenses')
+      .select('id, created_at, group_id')
+      .in('id', idsArray)
+      .order('created_at', { ascending: false })
+
+    if (sortError) throw sortError
+
+    // Filter by user's groups
+    const filteredForSort = allExpensesForSort.filter(expense => 
+      !expense.group_id || userGroupIds.includes(expense.group_id)
+    )
+
+    const totalCount = filteredForSort.length
+    const startIndex = (page - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const hasMore = endIndex < totalCount
+
+    // Get IDs for current page
+    const pageExpenseIds = filteredForSort
+      .slice(startIndex, endIndex)
+      .map(e => e.id)
+
+    if (pageExpenseIds.length === 0) {
+      return { success: true, data: [], hasMore: false, totalCount }
+    }
+
+    // Fetch full data for current page
+    const { data: pageExpenses, error: pageError } = await supabase
+      .from('expenses')
+      .select(`
+        *,
+        paid_by_user:users!paid_by (
+          id,
+          name,
+          email,
+          avatar,
+          picture
+        ),
+        expense_splits (
+          user_id,
+          amount,
+          users (
+            id,
+            name,
+            email,
+            avatar,
+            picture
+          )
+        ),
+        groups (
+          id,
+          name,
+          type
+        )
+      `)
+      .in('id', pageExpenseIds)
+      .order('created_at', { ascending: false })
+
+    if (pageError) throw pageError
+
+    // Transform the data
+    const transformedExpenses = (pageExpenses || []).map(expense => ({
+      id: expense.id,
+      description: expense.description,
+      amount: parseFloat(expense.amount),
+      currency: expense.currency || 'USD',
+      created_at: expense.created_at,
+      paid_by: expense.paid_by,
+      group_id: expense.group_id,
+      paid_by_user: expense.paid_by_user,
+      expense_splits: expense.expense_splits,
+      groups: expense.groups,
+      category: expense.category,
+      image_url: expense.image_url
+    }))
+
+    // Sort by created_at to maintain order
+    transformedExpenses.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+
+    return { 
+      success: true, 
+      data: transformedExpenses, 
+      hasMore,
+      totalCount,
+      currentPage: page
+    }
+  } catch (error) {
+    console.error('Error fetching paginated expenses:', error)
+    return { success: false, error: error.message, data: [], hasMore: false, totalCount: 0 }
+  }
+}
+
 export async function getGroupExpenses(groupId) {
   try {
     const { data, error } = await supabase

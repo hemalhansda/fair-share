@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Clock, Receipt, Calendar } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Clock, Receipt, Calendar, Loader2 } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import ExpenseDetailModal from '../modals/ExpenseDetailModal';
 import { ActivitySkeleton } from '../ui/SkeletonLoader';
@@ -12,11 +12,45 @@ const ActivityView = ({
   formatMoney,
   userCurrency = 'USD',
   isLoading,
-  onEditExpense
+  onEditExpense,
+  onLoadMore,
+  hasMore = false,
+  totalCount = 0
 }) => {
   // State for expense detail modal
   const [selectedExpense, setSelectedExpense] = useState(null);
   const [showExpenseDetail, setShowExpenseDetail] = useState(false);
+  
+  // Pagination state
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loaderRef = useRef(null);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!onLoadMore || !hasMore) return;
+    
+    const observer = new IntersectionObserver(
+      async (entries) => {
+        const target = entries[0];
+        if (target.isIntersecting && !isLoadingMore && hasMore) {
+          setIsLoadingMore(true);
+          await onLoadMore();
+          setIsLoadingMore(false);
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+
+    return () => {
+      if (loaderRef.current) {
+        observer.unobserve(loaderRef.current);
+      }
+    };
+  }, [onLoadMore, hasMore, isLoadingMore]);
 
   // Group expenses by date
   const groupedExpenses = useMemo(() => {
@@ -60,7 +94,7 @@ const ActivityView = ({
       </div>
       <div className="px-4 py-2 bg-blue-50 rounded-lg">
         <div className="text-xs text-gray-500">Total Expenses</div>
-        <div className="text-lg font-bold text-blue-600">{expenses.length}</div>
+        <div className="text-lg font-bold text-blue-600">{totalCount || expenses.length}</div>
       </div>
     </div>
     
@@ -195,6 +229,23 @@ const ActivityView = ({
             </div>
           </div>
         ))}
+      </div>
+    )}
+    
+    {/* Infinite scroll loader */}
+    {!isLoading && expenses.length > 0 && hasMore && (
+      <div ref={loaderRef} className="flex justify-center py-8">
+        <div className="flex items-center gap-2 text-gray-500">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span className="text-sm">Loading more...</span>
+        </div>
+      </div>
+    )}
+    
+    {/* End of list message */}
+    {!isLoading && expenses.length > 0 && !hasMore && (
+      <div className="text-center py-6 text-gray-400">
+        <p className="text-sm">You've reached the end of your activity</p>
       </div>
     )}
     
