@@ -670,13 +670,6 @@ export async function createExpense(expenseData) {
         }
       }
     }
-    
-    // Return result with any image upload warnings
-    const result = { success: true, data: expense };
-    if (imageUploadWarning) {
-      result.warning = imageUploadWarning;
-    }
-    return result;
 
     // Handle custom splits or equal splits
     const splitInserts = []
@@ -753,7 +746,12 @@ export async function createExpense(expenseData) {
 
     if (splitsError) throw splitsError
 
-    // This return is moved up to handle image upload warnings
+    // Return result with any image upload warnings
+    const result = { success: true, data: expense };
+    if (imageUploadWarning) {
+      result.warning = imageUploadWarning;
+    }
+    return result;
   } catch (error) {
     console.error('Error creating expense:', error)
     return { success: false, error: error.message }
@@ -1003,39 +1001,53 @@ export async function getUserExpenses(userId) {
 
     if (paidError) throw paidError
 
-    // Get expenses where user is in the splits
-    const { data: splitExpenses, error: splitError } = await supabase
-      .from('expenses')
-      .select(`
-        *,
-        paid_by_user:users!paid_by (
-          id,
-          name,
-          email,
-          avatar,
-          picture
-        ),
-        expense_splits!inner (
-          user_id,
-          amount,
-          users (
+    // Get expense IDs where user is in the splits (to find expenses user participates in)
+    const { data: userSplits, error: userSplitsError } = await supabase
+      .from('expense_splits')
+      .select('expense_id')
+      .eq('user_id', user.id)
+
+    if (userSplitsError) throw userSplitsError
+
+    const expenseIdsFromSplits = userSplits?.map(s => s.expense_id) || []
+
+    // Get full expense data for those expenses (with ALL splits, not just current user's)
+    let splitExpenses = []
+    if (expenseIdsFromSplits.length > 0) {
+      const { data, error: splitError } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          paid_by_user:users!paid_by (
             id,
             name,
             email,
             avatar,
             picture
+          ),
+          expense_splits (
+            user_id,
+            amount,
+            users (
+              id,
+              name,
+              email,
+              avatar,
+              picture
+            )
+          ),
+          groups (
+            id,
+            name,
+            type
           )
-        ),
-        groups (
-          id,
-          name,
-          type
-        )
-      `)
-      .eq('expense_splits.user_id', user.id)
-      .order('created_at', { ascending: false })
+        `)
+        .in('id', expenseIdsFromSplits)
+        .order('created_at', { ascending: false })
 
-    if (splitError) throw splitError
+      if (splitError) throw splitError
+      splitExpenses = data || []
+    }
 
     // Combine and deduplicate expenses
     const allExpenses = [...(paidExpenses || []), ...(splitExpenses || [])]

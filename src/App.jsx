@@ -431,6 +431,15 @@ function AppRouter() {
 
       try {
         console.log(`Calculating balances for ${expenses.length} expenses`);
+        
+        // Find current user's UUID from the users array
+        // The users array includes the current user's data with their UUID
+        const currentUserData = users.find(u => u.google_id === currentUser.id || u.id === currentUser.id);
+        const currentUserUuid = currentUserData?.id || currentUser.id;
+        
+        console.log('Current user Google ID:', currentUser.id);
+        console.log('Current user UUID:', currentUserUuid);
+        
         const userCurrency = userPreferences.currency || 'USD';
         const convertedExpenses = [];
 
@@ -455,14 +464,16 @@ function AppRouter() {
           }
         }
 
-        // Calculate balances with converted amounts
-        const newBalances = calculateBalances(convertedExpenses, currentUser.id, users);
+        // Calculate balances with converted amounts using UUID
+        const newBalances = calculateBalances(convertedExpenses, currentUserUuid, users);
         console.log('Calculated balances:', newBalances);
         setBalances(newBalances);
       } catch (error) {
         console.error('Error calculating balances with currency conversion:', error);
-        // Fallback to original calculation
-        setBalances(calculateBalances(expenses, currentUser.id, users));
+        // Fallback to original calculation with UUID lookup
+        const currentUserData = users.find(u => u.google_id === currentUser.id || u.id === currentUser.id);
+        const currentUserUuid = currentUserData?.id || currentUser.id;
+        setBalances(calculateBalances(expenses, currentUserUuid, users));
       }
     };
 
