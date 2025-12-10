@@ -689,40 +689,57 @@ function AppRouter() {
     }
   };
 
-  const handleSettleUp = (friendId) => {
+  const handleSettleUp = async (friendId) => {
     // Determine amount to settle
     const amount = Math.abs(balances.details[friendId] || 0);
     const userOwesFriend = (balances.details[friendId] || 0) < 0;
 
     if (amount === 0) return;
 
+    // Find current user's UUID from the users array
+    const currentUserData = users.find(u => u.google_id === currentUser.id || u.id === currentUser.id);
+    const currentUserUuid = currentUserData?.id || currentUser.id;
+
+    // Settlement: If user owes friend, user pays. If friend owes user, friend pays.
+    // The person receiving the money is the one in the split (they "consumed" the payment)
     const settlementExpense = {
-      id: generateId(),
       description: 'Settlement',
       amount: amount,
-      created_at: new Date().toISOString(),
-      // If user owes friend, user pays. If friend owes user, friend pays.
-      paid_by: userOwesFriend ? currentUser?.id : friendId, 
-      split_between: [userOwesFriend ? friendId : currentUser?.id].filter(Boolean), // The receiver keeps 100% of value, logic is slightly diff for settlement
-      // Actually, settlement is just a transaction that reverses the balance.
-      // Standard way: A pays B $50. The split is 100% assigned to A (so A "consumed" 0, paid 50. B "consumed" 0, paid 0).
-      // Wait, simpler: A pays B. B receives money.
-      // To zero out:
-      // If I owe Alice $50. I pay Alice $50.
-      // Expense: Paid by Me. Split: Alice pays 0, I pay 0? No.
-      // Splitwise logic: Payment is a special type. 
-      // Workaround for this engine: 
-      // Expense: "Payment", Paid by Me ($50). Split: Assigned entirely to Alice ($50).
-      // Result: I paid +50, Alice "consumed" +50. Net for me: +50 owed. 
-      // Since I owed -50 before, -50 + 50 = 0. Correct.
-      category: 'Settlement'
+      currency: userPreferences.currency || 'USD',
+      date: new Date().toISOString(),
+      paid_by: userOwesFriend ? currentUserUuid : friendId,
+      paidBy: userOwesFriend ? currentUserUuid : friendId,
+      split_between: [userOwesFriend ? friendId : currentUserUuid],
+      splitBetween: [userOwesFriend ? friendId : currentUserUuid],
+      category: 'Settlement',
+      group_id: null // Settlement is not tied to a specific group
     };
 
-    // Override the split logic above for the settlement specifically
-    // We need to inject the expense such that the 'split_between' implies who 'benefited' (received the money)
-    settlementExpense.split_between = [userOwesFriend ? friendId : currentUser?.id].filter(Boolean);
+    if (isDemoMode) {
+      // Demo mode - just update local state
+      settlementExpense.id = generateId();
+      settlementExpense.created_at = new Date().toISOString();
+      setExpenses([settlementExpense, ...expenses]);
+    } else {
+      // Database mode - create actual settlement expense
+      try {
+        const result = await createExpense(settlementExpense);
+        if (result.success) {
+          // Reload expenses to get updated data
+          const expensesResult = await getUserExpenses(currentUser.id);
+          if (expensesResult.success) {
+            setExpenses(expensesResult.data);
+          }
+          showSuccess('Settlement recorded successfully');
+        } else {
+          showError('Failed to record settlement: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error creating settlement:', error);
+        showError('Failed to record settlement');
+      }
+    }
     
-    setExpenses([settlementExpense, ...expenses]);
     setIsSettleModalOpen(false);
   };
 
