@@ -25,7 +25,10 @@ const AppLayout = ({
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full relative overflow-hidden">
         {/* Mobile Header */}
-        <MobileHeader currentUser={currentUser} />
+        <MobileHeader 
+          currentUser={currentUser} 
+          setIsSettingsModalOpen={setIsSettingsModalOpen}
+        />
 
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-4xl mx-auto w-full pb-24 md:pb-8">

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, Globe } from 'lucide-react';
+import { X, Settings, Globe, LogOut } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { getCurrencyOptions } from '../../services/currency';
 
-const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences }) => {
+const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, handleLogout }) => {
   const [selectedCurrency, setSelectedCurrency] = useState('USD');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,6 +88,22 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences }
           </Button>
         </div>
       </form>
+
+      {/* Logout Button */}
+      {handleLogout && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <button
+            onClick={() => {
+              handleLogout();
+              onClose();
+            }}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-semibold transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
+        </div>
+      )}
     </Modal>
   );
 };

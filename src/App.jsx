@@ -1323,6 +1323,7 @@ function AppRouter() {
         onClose={() => setIsSettingsModalOpen(false)}
         userPreferences={userPreferences}
         onUpdatePreferences={handleUpdatePreferences}
+        handleLogout={handleLogout}
       />
 
       {/* Custom Confirmation Dialog */}
