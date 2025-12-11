@@ -1071,6 +1071,10 @@ function AppRouter() {
   const getGroupBalance = (groupId) => {
     if (!currentUser?.id || !expenses || expenses.length === 0) return 0;
     
+    // Get current user's UUID (not Google ID)
+    const currentUserData = users.find(u => u.google_id === currentUser.id || u.id === currentUser.id);
+    const currentUserUuid = currentUserData?.id || currentUser.id;
+    
     // Filter expenses for this specific group
     const groupExpenses = expenses.filter(e => e.group_id === groupId);
     
@@ -1083,17 +1087,17 @@ function AppRouter() {
       
       groupExpenses.forEach(expense => {
         // Add to what current user paid
-        if (expense.paid_by === currentUser.id) {
+        if (expense.paid_by === currentUserUuid) {
           totalPaid += expense.amount;
         }
         
         // Add to what current user owes
         if (expense.expense_splits) {
-          const userSplit = expense.expense_splits.find(split => split.user_id === currentUser.id);
+          const userSplit = expense.expense_splits.find(split => split.user_id === currentUserUuid);
           if (userSplit) {
             totalOwes += expense.amount / expense.expense_splits.length;
           }
-        } else if (expense.split_with && expense.split_with.includes(currentUser.id)) {
+        } else if (expense.split_with && expense.split_with.includes(currentUserUuid)) {
           // Fallback for old split_with format
           totalOwes += expense.amount / expense.split_with.length;
         }
