@@ -609,11 +609,11 @@ export async function createExpense(expenseData) {
       console.log(`Converted Google ID ${paidById} to UUID ${payerUuid}`);
     }
 
-    // Create the expense (without currency column for now)
+    // Create the expense
     const insertData = {
       description: expenseData.description,
       amount: expenseData.amount,
-      // currency: expenseData.currency || 'USD', // TODO: Add currency column to database
+      currency: expenseData.currency || 'USD',
       paid_by: payerUuid,
       group_id: groupId,
       category: expenseData.category || 'General'
@@ -793,6 +793,7 @@ export async function updateExpense(expenseId, expenseData) {
     const updateData = {
       description: expenseData.description,
       amount: expenseData.amount,
+      currency: expenseData.currency || 'USD',
       paid_by: payerUuid,
       group_id: groupId,
       category: expenseData.category || 'General'
@@ -967,41 +968,45 @@ export async function getUserExpenses(userId) {
 
     const userGroupIds = userGroups?.map(g => g.group_id) || []
 
-    // Get expenses where user is the payer
-    const { data: paidExpenses, error: paidError } = await supabase
-      .from('expenses')
-      .select(`
-        *,
-        paid_by_user:users!paid_by (
-          id,
-          name,
-          email,
-          avatar,
-          picture
-        ),
-        expense_splits (
-          user_id,
-          amount,
-          users (
+    // Get all expenses from user's groups
+    let groupExpenses = []
+    if (userGroupIds.length > 0) {
+      const { data, error: groupError } = await supabase
+        .from('expenses')
+        .select(`
+          *,
+          paid_by_user:users!paid_by (
             id,
             name,
             email,
             avatar,
             picture
+          ),
+          expense_splits (
+            user_id,
+            amount,
+            users (
+              id,
+              name,
+              email,
+              avatar,
+              picture
+            )
+          ),
+          groups (
+            id,
+            name,
+            type
           )
-        ),
-        groups (
-          id,
-          name,
-          type
-        )
-      `)
-      .eq('paid_by', user.id)
-      .order('created_at', { ascending: false })
+        `)
+        .in('group_id', userGroupIds)
+        .order('created_at', { ascending: false })
 
-    if (paidError) throw paidError
+      if (groupError) throw groupError
+      groupExpenses = data || []
+    }
 
-    // Get expense IDs where user is in the splits (to find expenses user participates in)
+    // Get personal expenses (no group) where user is involved
     const { data: userSplits, error: userSplitsError } = await supabase
       .from('expense_splits')
       .select('expense_id')
@@ -1011,10 +1016,10 @@ export async function getUserExpenses(userId) {
 
     const expenseIdsFromSplits = userSplits?.map(s => s.expense_id) || []
 
-    // Get full expense data for those expenses (with ALL splits, not just current user's)
-    let splitExpenses = []
+    // Get personal expenses (without group_id)
+    let personalExpenses = []
     if (expenseIdsFromSplits.length > 0) {
-      const { data, error: splitError } = await supabase
+      const { data, error: personalError } = await supabase
         .from('expenses')
         .select(`
           *,
@@ -1043,23 +1048,20 @@ export async function getUserExpenses(userId) {
           )
         `)
         .in('id', expenseIdsFromSplits)
+        .is('group_id', null)
         .order('created_at', { ascending: false })
 
-      if (splitError) throw splitError
-      splitExpenses = data || []
+      if (personalError) throw personalError
+      personalExpenses = data || []
     }
 
     // Combine and deduplicate expenses
-    const allExpenses = [...(paidExpenses || []), ...(splitExpenses || [])]
+    const allExpenses = [...groupExpenses, ...personalExpenses]
     const uniqueExpenses = allExpenses.filter((expense, index, self) => 
       index === self.findIndex(e => e.id === expense.id)
     )
 
-    // Filter to only include expenses from user's groups or personal expenses
-    const filteredExpenses = uniqueExpenses.filter(expense => {
-      // Include if no group (personal expense) or if user is in the group
-      return !expense.group_id || userGroupIds.includes(expense.group_id)
-    })
+    const filteredExpenses = uniqueExpenses
 
     // Transform the data to match your app's format
     const transformedExpenses = filteredExpenses.map(expense => ({
@@ -1107,7 +1109,24 @@ export async function getUserExpensesPaginated(userId, page = 1, pageSize = 20) 
 
     const userGroupIds = userGroups?.map(g => g.group_id) || []
 
-    // Get expense IDs where user is in the splits (to find expenses user participates in)
+    // Get all expense IDs from user's groups
+    const allExpenseIds = new Set()
+    
+    // Add all expenses from user's groups
+    if (userGroupIds.length > 0) {
+      const { data: groupExpenseIds, error: groupIdsError } = await supabase
+        .from('expenses')
+        .select('id')
+        .in('group_id', userGroupIds)
+      
+      if (groupIdsError) throw groupIdsError
+      
+      groupExpenseIds?.forEach(exp => {
+        allExpenseIds.add(exp.id)
+      })
+    }
+    
+    // Add personal expenses where user is in the splits
     const { data: userSplits, error: userSplitsError } = await supabase
       .from('expense_splits')
       .select('expense_id')
@@ -1116,25 +1135,21 @@ export async function getUserExpensesPaginated(userId, page = 1, pageSize = 20) 
     if (userSplitsError) throw userSplitsError
 
     const expenseIdsFromSplits = userSplits?.map(s => s.expense_id) || []
-
-    // Build the query to get all expense IDs (both paid by user and in splits)
-    // We need to get IDs first to properly paginate
-    const allExpenseIds = new Set([...expenseIdsFromSplits])
     
-    // Add expenses paid by user
-    const { data: paidExpenseIds, error: paidIdsError } = await supabase
-      .from('expenses')
-      .select('id, group_id, created_at')
-      .eq('paid_by', user.id)
-    
-    if (paidIdsError) throw paidIdsError
-    
-    // Filter and add paid expense IDs
-    paidExpenseIds?.forEach(exp => {
-      if (!exp.group_id || userGroupIds.includes(exp.group_id)) {
+    // Get only personal expenses (no group_id) from splits
+    if (expenseIdsFromSplits.length > 0) {
+      const { data: personalExpenseIds, error: personalIdsError } = await supabase
+        .from('expenses')
+        .select('id')
+        .in('id', expenseIdsFromSplits)
+        .is('group_id', null)
+      
+      if (personalIdsError) throw personalIdsError
+      
+      personalExpenseIds?.forEach(exp => {
         allExpenseIds.add(exp.id)
-      }
-    })
+      })
+    }
 
     // Convert to array and sort by getting full data
     const idsArray = Array.from(allExpenseIds)
