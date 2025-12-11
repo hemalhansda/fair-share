@@ -75,6 +75,13 @@ const GroupDetailView = ({
     });
   }, [group?.members, users, currentUser]);
 
+  // Get current user's UUID (not Google ID)
+  const currentUserUuid = useMemo(() => {
+    // Find the user in the users array that matches current user's Google ID
+    const userData = users.find(u => u.google_id === currentUser?.id || u.id === currentUser?.id);
+    return userData?.id || currentUser?.id;
+  }, [users, currentUser?.id]);
+
   // Calculate balances for this group only with currency conversion
   const [groupBalances, setGroupBalances] = useState({ totalOwed: 0, totalOwes: 0, details: {} });
 
@@ -123,6 +130,11 @@ const GroupDetailView = ({
     const calculateContributions = async () => {
       const contributions = {};
       
+      console.log('=== Starting Contribution Calculation ===');
+      console.log('Group Members:', groupMembers);
+      console.log('Current User:', currentUser);
+      console.log('Group Expenses Count:', groupExpenses.length);
+      
       // Initialize all members with 0
       groupMembers.forEach(member => {
         contributions[member.id] = {
@@ -138,6 +150,8 @@ const GroupDetailView = ({
         const paidById = expense.paid_by;
         const expenseCurrency = expense.currency || 'USD';
         
+        console.log(`Processing expense: ${expense.description}, amount: ${expense.amount}, currency: ${expenseCurrency}, paid_by: ${paidById}`);
+        
         // Convert expense amount to group's default currency
         let convertedAmount = expense.amount;
         if (expenseCurrency !== groupCurrency) {
@@ -145,23 +159,33 @@ const GroupDetailView = ({
             const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, groupCurrency);
             if (success) {
               convertedAmount = amount;
+              console.log(`Converted ${expense.amount} ${expenseCurrency} to ${convertedAmount} ${groupCurrency}`);
             }
           } catch (error) {
             console.error('Currency conversion failed for expense:', expense.id, error);
           }
         }
 
-        const splitAmount = convertedAmount / (expense.expense_splits?.length || 1);
+        const splitCount = expense.expense_splits?.length || 1;
+        const splitAmount = convertedAmount / splitCount;
+        
+        console.log(`Split amount: ${splitAmount} (total: ${convertedAmount}, splits: ${splitCount})`);
 
         // Add to what this person paid (in converted currency)
         if (contributions[paidById]) {
           contributions[paidById].paid += convertedAmount;
+          console.log(`${paidById} paid: ${contributions[paidById].paid}`);
+        } else {
+          console.warn(`Paid by user ${paidById} not found in group members`);
         }
 
         // Add to what each person in the split owes (in converted currency)
         expense.expense_splits?.forEach(split => {
           if (contributions[split.user_id]) {
             contributions[split.user_id].owes += splitAmount;
+            console.log(`${split.user_id} owes: ${contributions[split.user_id].owes}`);
+          } else {
+            console.warn(`Split user ${split.user_id} not found in group members`);
           }
         });
       }
@@ -172,6 +196,15 @@ const GroupDetailView = ({
       });
 
       setMemberContributions(contributions);
+      
+      // Debug logging
+      console.log('=== Final Contributions ===');
+      console.log('Group:', group?.name);
+      console.log('All Member Contributions:', contributions);
+      console.log('Current User Google ID:', currentUser?.id);
+      console.log('Current User UUID:', currentUserUuid);
+      console.log('Current User Contribution:', contributions[currentUserUuid]);
+      console.log('=== End Calculation ===');
     };
 
     if (groupMembers.length > 0) {
@@ -245,10 +278,11 @@ const GroupDetailView = ({
               <div className="text-[10px] sm:text-xs text-emerald-100 mb-1">You're Owed</div>
               <div className="text-sm sm:text-lg font-bold text-emerald-300 truncate">
                 {(() => {
-                  const currentUserContrib = memberContributions[currentUser?.id];
+                  const currentUserContrib = memberContributions[currentUserUuid];
                   if (!currentUserContrib) return formatCurrency(0, groupCurrency);
-                  const netAmount = currentUserContrib.net;
-                  return netAmount < 0 ? formatCurrency(Math.abs(netAmount), groupCurrency) : formatCurrency(0, groupCurrency);
+                  // net is negative when you're owed (you paid more than your share)
+                  const amount = currentUserContrib.net < 0 ? Math.abs(currentUserContrib.net) : 0;
+                  return formatCurrency(amount, groupCurrency);
                 })()}
               </div>
             </div>
@@ -256,10 +290,11 @@ const GroupDetailView = ({
               <div className="text-[10px] sm:text-xs text-emerald-100 mb-1">You Owe</div>
               <div className="text-sm sm:text-lg font-bold text-rose-300 truncate">
                 {(() => {
-                  const currentUserContrib = memberContributions[currentUser?.id];
+                  const currentUserContrib = memberContributions[currentUserUuid];
                   if (!currentUserContrib) return formatCurrency(0, groupCurrency);
-                  const netAmount = currentUserContrib.net;
-                  return netAmount > 0 ? formatCurrency(netAmount, groupCurrency) : formatCurrency(0, groupCurrency);
+                  // net is positive when you owe (you paid less than your share)
+                  const amount = currentUserContrib.net > 0 ? currentUserContrib.net : 0;
+                  return formatCurrency(amount, groupCurrency);
                 })()}
               </div>
             </div>
@@ -284,7 +319,7 @@ const GroupDetailView = ({
                   .filter(contrib => Math.abs(contrib.net) > 0.01)
                   .sort((a, b) => b.net - a.net)
                   .map(contrib => {
-                    const isCurrentUser = contrib.user.id === currentUser?.id;
+                    const isCurrentUser = contrib.user.id === currentUserUuid;
                     const owesOrOwed = contrib.net > 0;
                     
                     return (
@@ -348,7 +383,7 @@ const GroupDetailView = ({
             <div className="grid gap-2 sm:gap-3">
               {groupMembers.map(member => {
                 const contrib = memberContributions[member.id] || { paid: 0, owes: 0, net: 0 };
-                const isCurrentUser = member.id === currentUser?.id;
+                const isCurrentUser = member.id === currentUserUuid;
                 
                 return (
                   <div 
