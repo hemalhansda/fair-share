@@ -325,6 +325,7 @@ export async function createGroup(groupData, currentUserId) {
       .insert([{
         name: groupData.name,
         type: groupData.type,
+        default_currency: groupData.default_currency || 'USD',
         created_by: user.id
       }])
       .select()
@@ -467,6 +468,7 @@ export async function getUserGroups(userId) {
         id,
         name,
         type,
+        default_currency,
         created_by,
         group_members!inner (
           user_id
@@ -475,6 +477,8 @@ export async function getUserGroups(userId) {
       .eq('group_members.user_id', user.id)
 
     if (error) throw error
+
+    console.log('Raw groups data from database:', data);
 
     // For each group, get all members (but only for groups the user belongs to)
     const groupsWithMembers = await Promise.all(
@@ -488,11 +492,14 @@ export async function getUserGroups(userId) {
           id: group.id,
           name: group.name,
           type: group.type,
+          default_currency: group.default_currency || 'USD',
           created_by: group.created_by,
           members: members?.map(m => m.user_id) || []
         }
       })
     )
+
+    console.log('Processed groups with members:', groupsWithMembers);
 
     return { success: true, data: groupsWithMembers }
   } catch (error) {
@@ -503,18 +510,26 @@ export async function getUserGroups(userId) {
 
 export async function updateGroup(groupId, groupData) {
   try {
+    console.log('Updating group with data:', { groupId, groupData });
+    
     // Update group basic info
     const { data: group, error: groupError } = await supabase
       .from('groups')
       .update({
         name: groupData.name,
-        type: groupData.type
+        type: groupData.type,
+        default_currency: groupData.default_currency || 'USD'
       })
       .eq('id', groupId)
       .select()
       .single()
 
-    if (groupError) throw groupError
+    if (groupError) {
+      console.error('Group update error:', groupError);
+      throw groupError;
+    }
+    
+    console.log('Group updated successfully:', group);
 
     // Update group members if provided
     if (groupData.members) {

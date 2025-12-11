@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, DollarSign, Upload, Eye, Trash2 } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -31,12 +31,16 @@ const AddExpenseModal = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // Update groupId when selectedGroup changes or modal opens
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setGroupId(selectedGroup?.id || '');
       // If we have a selected group, auto-populate split with all group members
       if (selectedGroup?.members) {
         setSplitWith(selectedGroup.members);
+      }
+      // Set currency to group's default currency if available
+      if (selectedGroup?.default_currency) {
+        setCurrency(selectedGroup.default_currency);
       }
     }
   }, [isOpen, selectedGroup]);

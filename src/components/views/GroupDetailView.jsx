@@ -32,6 +32,9 @@ const GroupDetailView = ({
   
   // Find the group by ID
   const group = groups?.find(g => g.id === groupId);
+  
+  // Use group's default currency or fall back to user's currency
+  const groupCurrency = group?.default_currency || userCurrency;
 
   // Handle group edit
   const handleEditGroup = async (groupId, groupData) => {
@@ -82,15 +85,15 @@ const GroupDetailView = ({
         return;
       }
 
-      // Convert all expenses to user's preferred currency before calculating balances
+      // Convert all expenses to group's default currency before calculating balances
       const convertedExpenses = [];
       for (const expense of groupExpenses) {
         const expenseCurrency = expense.currency || 'USD';
         let convertedAmount = expense.amount;
 
-        if (expenseCurrency !== userCurrency) {
+        if (expenseCurrency !== groupCurrency) {
           try {
-            const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, userCurrency);
+            const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, groupCurrency);
             if (success) {
               convertedAmount = amount;
             }
@@ -102,7 +105,7 @@ const GroupDetailView = ({
         convertedExpenses.push({
           ...expense,
           amount: convertedAmount,
-          currency: userCurrency
+          currency: groupCurrency
         });
       }
 
@@ -111,7 +114,7 @@ const GroupDetailView = ({
     };
 
     calculateGroupBalances();
-  }, [groupExpenses, currentUser?.id, userCurrency]); // Removed users from dependency to prevent re-renders
+  }, [groupExpenses, currentUser?.id, groupCurrency]); // Removed users from dependency to prevent re-renders
 
   // Calculate individual member contributions with currency conversion
   const [memberContributions, setMemberContributions] = useState({});
@@ -135,11 +138,11 @@ const GroupDetailView = ({
         const paidById = expense.paid_by;
         const expenseCurrency = expense.currency || 'USD';
         
-        // Convert expense amount to user's preferred currency
+        // Convert expense amount to group's default currency
         let convertedAmount = expense.amount;
-        if (expenseCurrency !== userCurrency) {
+        if (expenseCurrency !== groupCurrency) {
           try {
-            const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, userCurrency);
+            const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, groupCurrency);
             if (success) {
               convertedAmount = amount;
             }
@@ -174,7 +177,7 @@ const GroupDetailView = ({
     if (groupMembers.length > 0) {
       calculateContributions();
     }
-  }, [group?.id, groupExpenses, userCurrency]); // Use group ID instead of groupMembers to prevent re-renders
+  }, [group?.id, groupExpenses, groupCurrency]); // Use group ID instead of groupMembers to prevent re-renders
 
   if (!group) {
     return (
@@ -206,7 +209,9 @@ const GroupDetailView = ({
             </div>
             <div>
               <h1 className="text-xl font-bold text-gray-800">{group.name}</h1>
-              <p className="text-sm text-gray-500">{group.type} • {groupMembers.length} members</p>
+              <p className="text-sm text-gray-500">
+                {group.type} • {groupMembers.length} members • Currency: {groupCurrency}
+              </p>
             </div>
           </div>
         </div>
@@ -241,14 +246,14 @@ const GroupDetailView = ({
                         {contrib.user.id === currentUser?.id ? 'You' : contrib.user.name}
                       </div>
                       <div className="text-xs text-gray-500">
-                        Paid {formatCurrency(contrib.paid, userCurrency)} • 
-                        Owes {formatCurrency(contrib.owes, userCurrency)}
+                        Paid {formatCurrency(contrib.paid, groupCurrency)} • 
+                        Owes {formatCurrency(contrib.owes, groupCurrency)}
                       </div>
                     </div>
                   </div>
                   <div className={`font-semibold ${contrib.net > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                     {contrib.net > 0 ? 'Owes ' : 'Gets back '}
-                    {formatCurrency(Math.abs(contrib.net), userCurrency)}
+                    {formatCurrency(Math.abs(contrib.net), groupCurrency)}
                   </div>
                 </div>
               ))}
@@ -281,10 +286,10 @@ const GroupDetailView = ({
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium text-gray-800">
-                    Paid {formatCurrency(contrib.paid, userCurrency)}
+                    Paid {formatCurrency(contrib.paid, groupCurrency)}
                   </div>
                   <div className="text-xs text-gray-500">
-                    Share: {formatCurrency(contrib.owes, userCurrency)}
+                    Share: {formatCurrency(contrib.owes, groupCurrency)}
                   </div>
                 </div>
               </div>
@@ -317,7 +322,7 @@ const GroupDetailView = ({
                 users={users} 
                 currentUser={currentUser} 
                 formatMoney={formatMoney}
-                userCurrency={userCurrency}
+                userCurrency={groupCurrency}
                 onClick={(expense) => {
                   setSelectedExpense(expense);
                   setShowExpenseDetail(true);
@@ -344,7 +349,7 @@ const GroupDetailView = ({
         expense={selectedExpense}
         users={users}
         currentUser={currentUser}
-        userCurrency={userCurrency}
+        userCurrency={groupCurrency}
         onEdit={onEditExpense}
         onUpdate={(updatedExpense) => {
           // Handle expense update - you might want to refresh expenses here

@@ -3,6 +3,7 @@ import { Users, X } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Avatar from '../ui/Avatar';
+import { getCurrencyOptions, getCurrencySymbol } from '../../services/currency';
 
 const AddGroupModal = ({ 
   isOpen, 
@@ -13,6 +14,7 @@ const AddGroupModal = ({
 }) => {
   const [groupName, setGroupName] = useState('');
   const [groupType, setGroupType] = useState('General');
+  const [defaultCurrency, setDefaultCurrency] = useState('USD');
   const [selectedMembers, setSelectedMembers] = useState([currentUser?.id || '']);
   const [emailInput, setEmailInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +43,7 @@ const AddGroupModal = ({
       const group = {
         name: groupName.trim(),
         type: groupType,
+        default_currency: defaultCurrency,
         members: uniqueMembers,
         created_by: currentUser?.id
       };
@@ -58,6 +61,7 @@ const AddGroupModal = ({
     if (isSubmitting) return;
     setGroupName('');
     setGroupType('General');
+    setDefaultCurrency('USD');
     setSelectedMembers([currentUser?.id || '']);
     setEmailInput('');
     setIsSubmitting(false);
@@ -104,6 +108,26 @@ const AddGroupModal = ({
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Default Currency
+          </label>
+          <select
+            value={defaultCurrency}
+            onChange={(e) => setDefaultCurrency(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {getCurrencyOptions().map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            This will be the default currency for expenses in this group
+          </p>
         </div>
 
         <div>

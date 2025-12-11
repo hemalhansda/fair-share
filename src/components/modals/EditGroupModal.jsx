@@ -3,11 +3,13 @@ import { X, Users, Save, AlertCircle, User } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Avatar from '../ui/Avatar';
+import { getCurrencyOptions, getCurrencySymbol } from '../../services/currency';
 
 const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGroup }) => {
   const [formData, setFormData] = useState({
     name: '',
     type: 'General',
+    default_currency: 'USD',
     members: []
   });
   const [emailInput, setEmailInput] = useState('');
@@ -25,6 +27,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
       setFormData({
         name: group.name || '',
         type: group.type || 'General',
+        default_currency: group.default_currency || 'USD',
         members: group.members || []
       });
       setEmailInput('');
@@ -81,6 +84,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
       const groupData = {
         name: formData.name.trim(),
         type: formData.type,
+        default_currency: formData.default_currency,
         members: formData.members
       };
 
@@ -91,6 +95,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
       setFormData({
         name: '',
         type: 'General',
+        default_currency: 'USD',
         members: []
       });
       setEmailInput('');
@@ -108,6 +113,7 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
       setFormData({
         name: '',
         type: 'General',
+        default_currency: 'USD',
         members: []
       });
     }
@@ -156,6 +162,27 @@ const EditGroupModal = ({ isOpen, onClose, group, users, currentUser, onEditGrou
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Default Currency
+          </label>
+          <select
+            value={formData.default_currency}
+            onChange={(e) => setFormData({ ...formData, default_currency: e.target.value })}
+            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            disabled={isSubmitting}
+          >
+            {getCurrencyOptions().map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500">
+            Default currency for expenses in this group
+          </p>
         </div>
 
         <div>

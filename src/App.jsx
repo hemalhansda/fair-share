@@ -650,10 +650,13 @@ function AppRouter() {
       ));
     } else {
       // Database mode
+      console.log('Updating group:', groupId, 'with data:', groupData);
       const result = await updateGroup(groupId, groupData);
+      console.log('Update result:', result);
       if (result.success) {
         // Reload groups to get updated data
         const groupsResult = await getUserGroups(currentUser.id);
+        console.log('Reloaded groups:', groupsResult.data);
         if (groupsResult.success) {
           setGroups(groupsResult.data);
         }
