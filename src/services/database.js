@@ -108,60 +108,31 @@ export async function getUserFriends(userId) {
     let allFriends = []
     const friendsSet = new Set()
 
-    // Step 1: Get friends from friendships table (user_id = current user)
+    // Step 1: Get friends from friends table (created_by = current user)
     const { data: myFriends, error: myFriendsError } = await supabase
-      .from('friendships')
-      .select(`
-        friend_id,
-        users:friend_id (
-          id,
-          name,
-          email,
-          avatar,
-          picture,
-          google_id
-        )
-      `)
-      .eq('user_id', user.id)
+      .from('friends')
+      .select('*')
+      .eq('created_by', user.id)
 
     if (myFriendsError) {
-      console.log('Friendships table may not exist yet:', myFriendsError.message)
-      // Fall back to group-based friends only
+      console.log('Friends table error:', myFriendsError.message)
     } else {
-      myFriends?.forEach(friendship => {
-        if (friendship.users && !friendsSet.has(friendship.users.id)) {
-          allFriends.push(friendship.users)
-          friendsSet.add(friendship.users.id)
+      myFriends?.forEach(friend => {
+        if (!friendsSet.has(friend.id)) {
+          allFriends.push({
+            id: friend.id,
+            name: friend.name,
+            email: friend.email,
+            avatar: friend.avatar,
+            picture: null,
+            google_id: null
+          })
+          friendsSet.add(friend.id)
         }
       })
     }
 
-    // Step 2: Get friends where I was added as friend (friend_id = current user)
-    const { data: addedMe, error: addedMeError } = await supabase
-      .from('friendships')
-      .select(`
-        user_id,
-        users:user_id (
-          id,
-          name,
-          email,
-          avatar,
-          picture,
-          google_id
-        )
-      `)
-      .eq('friend_id', user.id)
-
-    if (!addedMeError) {
-      addedMe?.forEach(friendship => {
-        if (friendship.users && !friendsSet.has(friendship.users.id)) {
-          allFriends.push(friendship.users)
-          friendsSet.add(friendship.users.id)
-        }
-      })
-    }
-
-    // Step 3: Get current user data for lookups
+    // Step 2: Get current user data for lookups
     const { data: currentUserData } = await supabase
       .from('users')
       .select('*')
@@ -170,7 +141,7 @@ export async function getUserFriends(userId) {
     
     let currentUserForGroups = currentUserData
 
-    // Step 4: Get all groups the user is a member of
+    // Step 3: Get all groups the user is a member of
     const { data: userGroups, error: groupsError } = await supabase
       .from('group_members')
       .select('group_id')
@@ -180,7 +151,7 @@ export async function getUserFriends(userId) {
 
     const userGroupIds = userGroups?.map(g => g.group_id) || []
 
-    // Step 5: Get all users in those groups
+    // Step 4: Get all users in those groups
     if (userGroupIds.length > 0) {
       const { data: groupMembers, error: membersError } = await supabase
         .from('group_members')
@@ -238,52 +209,35 @@ export async function addFriend(friendData, currentUserId) {
       throw new Error('Current user not found')
     }
 
-    // First, try to find if user already exists
-    const { data: existingUser } = await supabase
-      .from('users')
+    // Check if friend with this email already exists for this user
+    const { data: existingFriend } = await supabase
+      .from('friends')
       .select('*')
+      .eq('created_by', currentUser.id)
       .eq('email', friendData.email)
       .maybeSingle()
 
-    let friendUser;
-    if (existingUser) {
-      // User already exists
-      friendUser = existingUser
-    } else {
-      // Create new user (Let Supabase generate a UUID automatically)
-      const { data, error } = await supabase
-        .from('users')
-        .insert([{
-          name: friendData.name,
-          email: friendData.email,
-          avatar: friendData.avatar,
-          google_id: null // This indicates it's a friend, not a Google OAuth user
-        }])
-        .select()
-        .single()
-
-      if (error) throw error
-      friendUser = data
+    if (existingFriend) {
+      // Friend already exists for this user
+      return { success: true, data: existingFriend }
     }
 
-    // Create friendship record
-    const { error: friendshipError } = await supabase
-      .from('friendships')
-      .upsert([{
-        user_id: currentUser.id,
-        friend_id: friendUser.id
-      }], {
-        onConflict: 'user_id,friend_id'
-      })
+    // Create new friend record
+    const { data, error } = await supabase
+      .from('friends')
+      .insert([{
+        name: friendData.name,
+        email: friendData.email,
+        avatar: friendData.avatar,
+        created_by: currentUser.id
+      }])
+      .select()
+      .single()
 
-    if (friendshipError) {
-      console.log('Friendships table may not exist:', friendshipError.message)
-      // Continue anyway - friendship tracking is optional until table exists
-    }
+    if (error) throw error
 
-    console.log('Friend added successfully:', friendUser)
-
-    return { success: true, data: friendUser }
+    console.log('Friend added successfully:', data)
+    return { success: true, data }
   } catch (error) {
     console.error('Error adding friend:', error)
     console.error('Error details:', {
