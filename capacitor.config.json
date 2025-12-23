@@ -1,5 +1,25 @@
 {
   "appId": "com.hemaalhansda.fyrshare",
   "appName": "fyrShare",
-  "webDir": "dist"
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic",
+    "scheme": "fyrshare"
+  },
+  "android": {
+    "scheme": "fyrshare"
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": [
+      "*.supabase.co",
+      "accounts.google.com"
+    ]
+  },
+  "plugins": {
+    "CapacitorCookies": {
+      "enabled": true
+    }
+  }
 }

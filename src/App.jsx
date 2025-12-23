@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { Browser } from '@capacitor/browser';
 import { 
   Users, 
   UserPlus, 
@@ -76,6 +78,7 @@ import {
   DEMO_GROUPS,
   DEMO_EXPENSES
 } from './services/database.js';
+import { supabase } from './lib/supabaseClient';
 
 // Currency services
 import { convertCurrency, formatCurrency, CURRENCIES } from './services/currency.js';
@@ -240,6 +243,88 @@ function AppRouter() {
     const timer = setTimeout(() => setIsLoading(false), 2500);
     return () => clearTimeout(timer);
   }, []);
+
+
+
+  // Handle OAuth callback from Browser plugin
+  useEffect(() => {
+    const isNative = Capacitor.isNativePlatform();
+    if (!isNative) return;
+
+    const handleAuthCallback = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Session error:', error);
+          return;
+        }
+
+        if (session?.user) {
+          console.log('User authenticated:', session.user.email);
+          
+          const googleUserData = {
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
+            email: session.user.email,
+            avatar: (session.user.user_metadata?.full_name || session.user.user_metadata?.name || 'U').substring(0, 2).toUpperCase(),
+            picture: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture
+          };
+
+          let autoJoinedGroups = 0;
+          if (!isDemoMode) {
+            const result = await createOrUpdateUser(googleUserData);
+            if (result.success) {
+              autoJoinedGroups = result.autoJoinedGroups || 0;
+            }
+          }
+
+          setGoogleUser(googleUserData);
+          setCurrentUser(googleUserData);
+          setIsAuthenticated(true);
+          setShowLanding(false);
+          setIsGoogleLoading(false);
+
+          localStorage.setItem('fyrshare_auth_state', 'true');
+          localStorage.setItem('fyrshare_user', JSON.stringify(googleUserData));
+
+          if (autoJoinedGroups > 0) {
+            showSuccess(`Welcome! Added to ${autoJoinedGroups} group${autoJoinedGroups > 1 ? 's' : ''}.`);
+          }
+
+          navigate('/dashboard');
+        }
+      } catch (error) {
+        console.error('Auth callback error:', error);
+      }
+    };
+
+    // Check session on mount
+    handleAuthCallback();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event);
+      if (event === 'SIGNED_IN') {
+        handleAuthCallback();
+      }
+    });
+
+    // Listen for app resume (when returning from browser)
+    const handleAppResume = () => {
+      console.log('App resumed, checking auth...');
+      handleAuthCallback();
+    };
+    
+    window.addEventListener('resume', handleAppResume);
+    document.addEventListener('resume', handleAppResume);
+
+    return () => {
+      subscription?.unsubscribe();
+      window.removeEventListener('resume', handleAppResume);
+      document.removeEventListener('resume', handleAppResume);
+    };
+  }, [isDemoMode, navigate]);
 
   // Google OAuth setup
   useEffect(() => {
@@ -922,9 +1007,49 @@ function AppRouter() {
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     console.log('handleGoogleLogin called');
     
+    const isNative = Capacitor.isNativePlatform();
+    const platform = Capacitor.getPlatform();
+    
+    console.log('Platform:', platform, 'isNative:', isNative);
+    
+    // For native iOS/Android, use Supabase OAuth with Browser plugin
+    if (isNative) {
+      setIsGoogleLoading(true);
+      try {
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: window.location.origin,
+          }
+        });
+        
+        if (error) {
+          console.error('Supabase OAuth error:', error);
+          showError('Failed to initiate Google sign-in: ' + error.message);
+          setIsGoogleLoading(false);
+          return;
+        }
+        
+        if (data?.url) {
+          console.log('Opening OAuth URL:', data.url);
+          // Open in external browser
+          await Browser.open({ 
+            url: data.url,
+            windowName: '_self'
+          });
+        }
+      } catch (error) {
+        console.error('OAuth exception:', error);
+        showError('Authentication error: ' + error.message);
+        setIsGoogleLoading(false);
+      }
+      return;
+    }
+    
+    // For web, use Google One Tap
     if (!window.google || !window.google.accounts) {
       showWarning('Google authentication is still loading. Please wait a moment and try again.');
       return;
