@@ -108,38 +108,69 @@ export async function getUserFriends(userId) {
     let allFriends = []
     const friendsSet = new Set()
 
-    // Step 1: Get all users that were added as friends (users without google_id)
-    // These are users created when adding friends manually
-    const { data: addedFriends, error: friendsError } = await supabase
-      .from('users')
-      .select('*')
-      .is('google_id', null) // Users added as friends have null google_id
+    // Step 1: Get friends from friendships table (user_id = current user)
+    const { data: myFriends, error: myFriendsError } = await supabase
+      .from('friendships')
+      .select(`
+        friend_id,
+        users:friend_id (
+          id,
+          name,
+          email,
+          avatar,
+          picture,
+          google_id
+        )
+      `)
+      .eq('user_id', user.id)
 
-    if (friendsError) throw friendsError
+    if (myFriendsError) {
+      console.log('Friendships table may not exist yet:', myFriendsError.message)
+      // Fall back to group-based friends only
+    } else {
+      myFriends?.forEach(friendship => {
+        if (friendship.users && !friendsSet.has(friendship.users.id)) {
+          allFriends.push(friendship.users)
+          friendsSet.add(friendship.users.id)
+        }
+      })
+    }
 
-    // Add all manually added friends
-    addedFriends?.forEach(friend => {
-      if (!friendsSet.has(friend.id)) {
-        allFriends.push(friend)
-        friendsSet.add(friend.id)
-      }
-    })
+    // Step 2: Get friends where I was added as friend (friend_id = current user)
+    const { data: addedMe, error: addedMeError } = await supabase
+      .from('friendships')
+      .select(`
+        user_id,
+        users:user_id (
+          id,
+          name,
+          email,
+          avatar,
+          picture,
+          google_id
+        )
+      `)
+      .eq('friend_id', user.id)
 
-    // Step 1.5: Always include the current user in the users array (but not in friends list for UI)
-    // This ensures the current user data is available for group displays, etc.
+    if (!addedMeError) {
+      addedMe?.forEach(friendship => {
+        if (friendship.users && !friendsSet.has(friendship.users.id)) {
+          allFriends.push(friendship.users)
+          friendsSet.add(friendship.users.id)
+        }
+      })
+    }
+
+    // Step 3: Get current user data for lookups
     const { data: currentUserData } = await supabase
       .from('users')
       .select('*')
       .eq('id', user.id)
       .single()
     
-    // Store current user data separately - we'll add it to the final array but mark it
-    let currentUserForGroups = null
-    if (currentUserData) {
-      currentUserForGroups = currentUserData
-    }
+    let currentUserForGroups = currentUserData
 
-    // Step 2: Get all groups the user is a member of
+    // Step 4: Get all groups the user is a member of
     const { data: userGroups, error: groupsError } = await supabase
       .from('group_members')
       .select('group_id')
@@ -149,9 +180,8 @@ export async function getUserFriends(userId) {
 
     const userGroupIds = userGroups?.map(g => g.group_id) || []
 
-    // Step 3: Get all users in those groups (if user has any groups)
+    // Step 5: Get all users in those groups
     if (userGroupIds.length > 0) {
-      // Get all members from user's groups
       const { data: groupMembers, error: membersError } = await supabase
         .from('group_members')
         .select(`
@@ -169,27 +199,21 @@ export async function getUserFriends(userId) {
 
       if (membersError) throw membersError
 
-      // Add unique group members (exclude current user from friends list but keep their data available)
       groupMembers?.forEach(member => {
         if (member.users && !friendsSet.has(member.users.id)) {
           if (member.users.id !== user.id) {
-            // Add other users to friends list
             allFriends.push(member.users)
             friendsSet.add(member.users.id)
           } else {
-            // Update current user data if found in groups
             currentUserForGroups = member.users
           }
         }
       })
     }
 
-    // Create final result: friends + current user data for lookups
-    // The UI will filter out current user from friends display, but group lookups will work
+    // Create final result
     const result = [...allFriends]
     
-    // Add current user data to the result array for group member lookups
-    // This ensures current user can be found when displaying group members
     if (currentUserForGroups && !friendsSet.has(currentUserForGroups.id)) {
       result.push(currentUserForGroups)
     }
@@ -203,6 +227,17 @@ export async function getUserFriends(userId) {
 
 export async function addFriend(friendData, currentUserId) {
   try {
+    // Get current user's UUID from google_id
+    const { data: currentUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('google_id', currentUserId)
+      .single()
+
+    if (!currentUser) {
+      throw new Error('Current user not found')
+    }
+
     // First, try to find if user already exists
     const { data: existingUser } = await supabase
       .from('users')
@@ -231,8 +266,21 @@ export async function addFriend(friendData, currentUserId) {
       friendUser = data
     }
 
-    // TODO: Create friendship relationship when friendships table is available
-    // For now, friends are managed through shared groups and expenses
+    // Create friendship record
+    const { error: friendshipError } = await supabase
+      .from('friendships')
+      .upsert([{
+        user_id: currentUser.id,
+        friend_id: friendUser.id
+      }], {
+        onConflict: 'user_id,friend_id'
+      })
+
+    if (friendshipError) {
+      console.log('Friendships table may not exist:', friendshipError.message)
+      // Continue anyway - friendship tracking is optional until table exists
+    }
+
     console.log('Friend added successfully:', friendUser)
 
     return { success: true, data: friendUser }
