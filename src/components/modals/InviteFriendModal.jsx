@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import { X, Mail, MessageCircle, Copy, Check, Share2, Sparkles, Send, Loader } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Mail, MessageCircle, Copy, Check, Share2, Sparkles, Send, Loader, UserPlus, Search } from 'lucide-react';
 import Modal from '../ui/Modal';
 import emailjs from '@emailjs/browser';
+import { searchUsersByEmail, addFriend } from '../../services/database';
 
-const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
+const InviteFriendModal = ({ isOpen, onClose, currentUser, onFriendAdded }) => {
   const [copied, setCopied] = useState(false);
   const [email, setEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [sendStatus, setSendStatus] = useState(null); // 'success' | 'error' | null
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [addingUserId, setAddingUserId] = useState(null);
+  const [addedUsers, setAddedUsers] = useState(new Set());
 
   // Generate invite link (you can customize this to your actual domain)
   const appUrl = window.location.origin;
@@ -18,6 +23,61 @@ const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
   
   const emailSubject = 'Join me on fyrShare - Split expenses easily!';
   const emailBody = `Hi there!\n\nI've been using fyrShare to manage shared expenses with friends and groups, and it's been amazing! You can track who owes what, split bills easily, and settle up with just a few taps.\n\nJoin me on fyrShare:\n${inviteLink}\n\nLooking forward to splitting expenses with you!\n\nBest,\n${currentUser?.name || 'Your friend'}`;
+
+  // Debounced search for existing users
+  useEffect(() => {
+    const searchTimer = setTimeout(async () => {
+      if (email && email.length >= 2 && currentUser?.id) {
+        setIsSearching(true);
+        const result = await searchUsersByEmail(email, currentUser.id);
+        if (result.success) {
+          setSearchResults(result.data);
+        }
+        setIsSearching(false);
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(searchTimer);
+  }, [email, currentUser?.id]);
+
+  // Reset state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchResults([]);
+      setAddedUsers(new Set());
+      setEmail('');
+      setSendStatus(null);
+    }
+  }, [isOpen]);
+
+  const handleAddExistingUser = async (user) => {
+    if (!currentUser?.id || addedUsers.has(user.id)) return;
+    
+    setAddingUserId(user.id);
+    try {
+      // Only store basic info - picture is fetched from users table for signed-up users
+      const friendData = {
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar || user.name?.substring(0, 2).toUpperCase()
+      };
+      
+      const result = await addFriend(friendData, currentUser.id);
+      
+      if (result.success) {
+        setAddedUsers(prev => new Set([...prev, user.id]));
+        if (onFriendAdded) {
+          onFriendAdded(result.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error adding friend:', error);
+    } finally {
+      setAddingUserId(null);
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(inviteLink);
@@ -127,6 +187,106 @@ const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
       }
     >
       <div className="relative">
+        {/* Search & Add Existing Users Section */}
+        <div className="mb-6">
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Search className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-semibold text-gray-800">Find Existing Users</h3>
+            </div>
+            <p className="text-xs text-gray-600 mb-3">
+              Search by email to find friends already on fyrShare
+            </p>
+            <div className="relative">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Search by email..."
+                className="w-full px-4 py-2.5 border-2 border-emerald-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+              />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader className="w-4 h-4 animate-spin text-emerald-500" />
+                </div>
+              )}
+            </div>
+            
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs text-emerald-700 font-medium">Found {searchResults.length} user{searchResults.length > 1 ? 's' : ''}:</p>
+                {searchResults.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex items-center justify-between p-3 bg-white rounded-lg border border-emerald-100 shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      {user.picture ? (
+                        <img
+                          src={user.picture}
+                          alt={user.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-semibold text-sm">
+                          {user.avatar || user.name?.substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-medium text-gray-800 text-sm">{user.name}</p>
+                        <p className="text-xs text-gray-500">{user.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleAddExistingUser(user)}
+                      disabled={addingUserId === user.id || addedUsers.has(user.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                        addedUsers.has(user.id)
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : addingUserId === user.id
+                          ? 'bg-gray-100 text-gray-500'
+                          : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                      }`}
+                    >
+                      {addedUsers.has(user.id) ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          Added
+                        </>
+                      ) : addingUserId === user.id ? (
+                        <>
+                          <Loader className="w-4 h-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Add
+                        </>
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* No results message */}
+            {email.length >= 2 && !isSearching && searchResults.length === 0 && (
+              <p className="mt-3 text-xs text-gray-500 italic">
+                No existing users found. Send them an invite below!
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex-1 h-px bg-gray-200"></div>
+          <span className="text-xs text-gray-500 font-medium">NOT ON FYRSHARE?</span>
+          <div className="flex-1 h-px bg-gray-200"></div>
+        </div>
+
         {/* Send Email Invite Section */}
         <div className="mb-6">
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-4">
@@ -135,7 +295,9 @@ const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
               <h3 className="font-semibold text-gray-800">Send Email Invitation</h3>
             </div>
             <p className="text-xs text-gray-600 mb-3">
-              Enter your friend's email to send them a personalized invite
+              {email && searchResults.length === 0 
+                ? `Send an invite to "${email}"` 
+                : "Enter an email to send them a personalized invite"}
             </p>
             <form onSubmit={handleSendEmail} className="space-y-3">
               <div>

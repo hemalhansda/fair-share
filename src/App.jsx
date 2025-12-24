@@ -50,6 +50,7 @@ import InviteFriendModal from './components/modals/InviteFriendModal';
 import EditUserModal from './components/modals/EditUserModal';
 import EditGroupModal from './components/modals/EditGroupModal';
 import SettingsModal from './components/modals/SettingsModal';
+import ProfileSetupModal from './components/modals/ProfileSetupModal';
 
 // Database services
 import { 
@@ -139,6 +140,7 @@ function AppRouter() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [googleUser, setGoogleUser] = useState(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isPhoneLoading, setIsPhoneLoading] = useState(false);
   
   // Database state
   const [isDemoMode, setIsDemoMode] = useState(!isSupabaseConfigured());
@@ -209,6 +211,8 @@ function AppRouter() {
   const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
   const [isEditGroupModalOpen, setIsEditGroupModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isProfileSetupModalOpen, setIsProfileSetupModalOpen] = useState(false);
+  const [pendingPhoneUser, setPendingPhoneUser] = useState(null);
   const [selectedUserToEdit, setSelectedUserToEdit] = useState(null);
   const [selectedGroupToEdit, setSelectedGroupToEdit] = useState(null);
   const [selectedExpenseToEdit, setSelectedExpenseToEdit] = useState(null);
@@ -268,21 +272,23 @@ function AppRouter() {
           };
 
           let autoJoinedGroups = 0;
+          let finalUserData = googleUserData;
           if (!isDemoMode) {
             const result = await createOrUpdateUser(googleUserData);
             if (result.success) {
+              finalUserData = result.data; // Use database user with correct UUID
               autoJoinedGroups = result.autoJoinedGroups || 0;
             }
           }
 
-          setGoogleUser(googleUserData);
-          setCurrentUser(googleUserData);
+          setGoogleUser(finalUserData);
+          setCurrentUser(finalUserData);
           setIsAuthenticated(true);
           setShowLanding(false);
           setIsGoogleLoading(false);
 
           localStorage.setItem('fyrshare_auth_state', 'true');
-          localStorage.setItem('fyrshare_user', JSON.stringify(googleUserData));
+          localStorage.setItem('fyrshare_user', JSON.stringify(finalUserData));
 
           if (autoJoinedGroups > 0) {
             showSuccess(`Welcome! Added to ${autoJoinedGroups} group${autoJoinedGroups > 1 ? 's' : ''}.`);
@@ -946,22 +952,24 @@ function AppRouter() {
       
       // Create or update user in database (if not in demo mode)
       let autoJoinedGroups = 0;
+      let finalUserData = googleUserData;
       if (!isDemoMode) {
         const result = await createOrUpdateUser(googleUserData);
-        if (!result.success) {
-          // Continue anyway, might be network issue
-        } else {
+        if (result.success) {
+          // Use the database user data (has correct UUID)
+          finalUserData = result.data;
           autoJoinedGroups = result.autoJoinedGroups || 0;
         }
+        // If failed, continue with googleUserData
       }
       
-      // Update states
-      setGoogleUser(googleUserData);
-      setCurrentUser(googleUserData);
+      // Update states with database user data (has correct UUID)
+      setGoogleUser(finalUserData);
+      setCurrentUser(finalUserData);
       
       // Save authentication state to localStorage
       localStorage.setItem('fyrshare_auth_state', 'true');
-      localStorage.setItem('fyrshare_user', JSON.stringify(googleUserData));
+      localStorage.setItem('fyrshare_user', JSON.stringify(finalUserData));
       
       // Simulate API call delay
       setTimeout(() => {
@@ -1101,6 +1109,127 @@ function AppRouter() {
     }
   };
 
+  // Handle Phone Authentication
+  const handlePhoneLogin = async ({ phone, otp, type }) => {
+    setIsPhoneLoading(true);
+
+    try {
+      if (type === 'sendOTP') {
+        // Send OTP to phone number
+        const { error } = await supabase.auth.signInWithOtp({
+          phone: phone,
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        setIsPhoneLoading(false);
+        showSuccess('Verification code sent to your phone');
+        return;
+      }
+
+      if (type === 'verifyOTP') {
+        // Verify OTP
+        const { data, error } = await supabase.auth.verifyOtp({
+          phone: phone,
+          token: otp,
+          type: 'sms',
+        });
+
+        if (error) {
+          throw new Error(error.message);
+        }
+
+        if (data?.user) {
+          // Check if user is already logged in (linking phone to existing account)
+          if (isAuthenticated && currentUser) {
+            // User is adding phone to their existing account - don't create new user
+            setIsPhoneLoading(false);
+            showSuccess('Phone number verified!');
+            return; // The SettingsModal will handle updating the user
+          }
+
+          // Check if this is a new user (first time login)
+          const isNewUser = !data.user.user_metadata?.name;
+          
+          // Create or update user in database
+          const userData = {
+            id: data.user.id,
+            name: data.user.user_metadata?.name || data.user.phone || 'Phone User',
+            email: data.user.email || data.user.user_metadata?.email || `${data.user.phone}@phone.user`,
+            avatar: data.user.user_metadata?.name?.substring(0, 2).toUpperCase() || data.user.phone?.slice(-4) || 'PU',
+            phone: data.user.phone,
+            avatar_url: data.user.user_metadata?.avatar_url
+          };
+
+          const result = await createOrUpdateUser(userData);
+          
+          if (result.success) {
+            setIsPhoneLoading(false);
+            
+            // If new user, show profile setup modal
+            if (isNewUser) {
+              setPendingPhoneUser(result.data);
+              setIsProfileSetupModalOpen(true);
+            } else {
+              // Existing user, log in directly
+              setIsAuthenticated(true);
+              setShowLanding(false);
+              setCurrentUser(result.data);
+              setGoogleUser(result.data);
+              
+              // Save auth state
+              localStorage.setItem('fyrshare_auth_state', 'true');
+              localStorage.setItem('fyrshare_user', JSON.stringify(result.data));
+              
+              showSuccess('Successfully signed in!');
+              navigate('/dashboard');
+            }
+          } else {
+            throw new Error('Failed to create user account');
+          }
+        }
+
+        setIsPhoneLoading(false);
+        return;
+      }
+    } catch (error) {
+      setIsPhoneLoading(false);
+      throw error;
+    }
+  };
+
+  // Handle Profile Setup Complete
+  const handleProfileSetupComplete = async (updatedUserData) => {
+    setIsProfileSetupModalOpen(false);
+    
+    const finalUser = {
+      ...pendingPhoneUser,
+      ...updatedUserData
+    };
+    
+    setIsAuthenticated(true);
+    setShowLanding(false);
+    setCurrentUser(finalUser);
+    setGoogleUser(finalUser);
+    
+    // Save auth state
+    localStorage.setItem('fyrshare_auth_state', 'true');
+    localStorage.setItem('fyrshare_user', JSON.stringify(finalUser));
+    
+    setPendingPhoneUser(null);
+    showSuccess('Welcome to fyrShare!');
+    navigate('/dashboard');
+
+    // If user wants to link Google account
+    if (updatedUserData.linkGoogle) {
+      setTimeout(() => {
+        handleGoogleLogin();
+      }, 1000);
+    }
+  };
+
   const handleLogout = () => {
     if (window.google) {
       window.google.accounts.id.disableAutoSelect();
@@ -1226,6 +1355,8 @@ function AppRouter() {
                 setCurrentSlide={setCurrentSlide}
                 isGoogleLoading={isGoogleLoading}
                 handleGoogleLogin={handleGoogleLogin}
+                isPhoneLoading={isPhoneLoading}
+                handlePhoneLogin={handlePhoneLogin}
                 setShowLanding={setShowLanding}
               />
             </PublicRoute>
@@ -1379,6 +1510,15 @@ function AppRouter() {
         isOpen={isFriendModalOpen}
         onClose={() => setIsFriendModalOpen(false)}
         currentUser={currentUser}
+        onFriendAdded={async () => {
+          // Refresh friends list when a friend is added
+          if (currentUser?.id) {
+            const usersResult = await getUserFriends(currentUser.id);
+            if (usersResult.success) {
+              setUsers(usersResult.data);
+            }
+          }
+        }}
       />
 
       <EditUserModal
@@ -1409,6 +1549,48 @@ function AppRouter() {
         userPreferences={userPreferences}
         onUpdatePreferences={handleUpdatePreferences}
         handleLogout={handleLogoutWithConfirm}
+        currentUser={currentUser}
+        onUpdateUser={async (userData) => {
+          try {
+            let updateData = { ...userData };
+            
+            // Handle profile image upload if provided
+            if (userData.profileImage) {
+              const uploadResult = await uploadExpenseImage(userData.profileImage, currentUser.id, 'profile');
+              if (uploadResult.success) {
+                updateData.picture = uploadResult.publicUrl || uploadResult.url;
+              }
+              // Remove profileImage from updateData as it's not a DB field
+              delete updateData.profileImage;
+            }
+            
+            const result = await updateUser(currentUser.id, updateData);
+            if (result.success) {
+              setCurrentUser(result.data);
+              setGoogleUser(result.data);
+              localStorage.setItem('fyrshare_user', JSON.stringify(result.data));
+              showSuccess('Profile updated successfully');
+            } else {
+              showError('Failed to update profile: ' + result.error);
+            }
+          } catch (error) {
+            showError('An error occurred while updating profile');
+          }
+        }}
+        handlePhoneLogin={handlePhoneLogin}
+        isPhoneLoading={isPhoneLoading}
+        handleGoogleLogin={handleGoogleLogin}
+        isGoogleLoading={isGoogleLoading}
+      />
+
+      <ProfileSetupModal
+        isOpen={isProfileSetupModalOpen}
+        onClose={() => {
+          setIsProfileSetupModalOpen(false);
+          setPendingPhoneUser(null);
+        }}
+        user={pendingPhoneUser}
+        onComplete={handleProfileSetupComplete}
       />
 
       {/* Custom Confirmation Dialog */}

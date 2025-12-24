@@ -88,14 +88,36 @@ export async function getAllUsers() {
   }
 }
 
+// Search users by email (for invite/add friend feature)
+export async function searchUsersByEmail(emailQuery, currentUserId) {
+  try {
+    if (!emailQuery || emailQuery.length < 2) {
+      return { success: true, data: [] }
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, avatar, picture')
+      .ilike('email', `%${emailQuery}%`)
+      .neq('id', currentUserId) // Exclude current user
+      .not('email', 'ilike', '%@phone.user') // Exclude placeholder phone users
+      .limit(5)
+
+    if (error) throw error
+    return { success: true, data: data || [] }
+  } catch (error) {
+    return { success: false, error: error.message, data: [] }
+  }
+}
+
 // Get only the current user's friends (people they've added or been added by)
 export async function getUserFriends(userId) {
   try {
-    // First get the user's UUID from their google_id
+    // Verify user exists by their id
     const { data: user } = await supabase
       .from('users')
-      .select('id')
-      .eq('google_id', userId)
+      .select('id, email')
+      .eq('id', userId)
       .single()
 
     if (!user) {
@@ -112,23 +134,62 @@ export async function getUserFriends(userId) {
       .eq('created_by', user.id)
 
     if (myFriendsError) {
+      console.error('Error fetching my friends:', myFriendsError);
     } else {
-      myFriends?.forEach(friend => {
-        if (!friendsSet.has(friend.id)) {
+      for (const friend of myFriends || []) {
+        // Check if this friend email matches a real signed-up user
+        const { data: realUser } = await supabase
+          .from('users')
+          .select('id, name, email, avatar, picture, google_id')
+          .eq('email', friend.email)
+          .maybeSingle()
+
+        if (realUser && !friendsSet.has(realUser.id)) {
+          // This friend is a real user, use their actual user data
+          allFriends.push(realUser)
+          friendsSet.add(realUser.id)
+        } else if (!realUser && !friendsSet.has(friend.id)) {
+          // This is a placeholder friend (not signed up yet)
           allFriends.push({
             id: friend.id,
             name: friend.name,
             email: friend.email,
             avatar: friend.avatar,
-            picture: null,
+            picture: friend.picture || null,
             google_id: null
           })
           friendsSet.add(friend.id)
         }
-      })
+      }
     }
 
-    // Step 2: Get current user data for lookups
+    // Step 2: Get users who added ME as a friend (bidirectional relationship)
+    if (user.email) {
+      const { data: addedByOthers, error: addedByError } = await supabase
+        .from('friends')
+        .select('created_by')
+        .eq('email', user.email)
+
+      if (!addedByError && addedByOthers && addedByOthers.length > 0) {
+        const creatorIds = addedByOthers.map(f => f.created_by).filter(id => id !== user.id)
+        
+        if (creatorIds.length > 0) {
+          const { data: usersWhoAddedMe } = await supabase
+            .from('users')
+            .select('id, name, email, avatar, picture, google_id')
+            .in('id', creatorIds)
+
+          usersWhoAddedMe?.forEach(addingUser => {
+            if (!friendsSet.has(addingUser.id)) {
+              allFriends.push(addingUser)
+              friendsSet.add(addingUser.id)
+            }
+          })
+        }
+      }
+    }
+
+    // Step 3: Get current user data for lookups
     const { data: currentUserData } = await supabase
       .from('users')
       .select('*')
@@ -137,7 +198,7 @@ export async function getUserFriends(userId) {
     
     let currentUserForGroups = currentUserData
 
-    // Step 3: Get all groups the user is a member of
+    // Step 4: Get all groups the user is a member of
     const { data: userGroups, error: groupsError } = await supabase
       .from('group_members')
       .select('group_id')
@@ -147,7 +208,7 @@ export async function getUserFriends(userId) {
 
     const userGroupIds = userGroups?.map(g => g.group_id) || []
 
-    // Step 4: Get all users in those groups
+    // Step 5: Get all users in those groups
     if (userGroupIds.length > 0) {
       const { data: groupMembers, error: membersError } = await supabase
         .from('group_members')
@@ -193,11 +254,11 @@ export async function getUserFriends(userId) {
 
 export async function addFriend(friendData, currentUserId) {
   try {
-    // Get current user's UUID from google_id
+    // Verify current user exists by their id
     const { data: currentUser } = await supabase
       .from('users')
       .select('id')
-      .eq('google_id', currentUserId)
+      .eq('id', currentUserId)
       .single()
 
     if (!currentUser) {
@@ -217,7 +278,7 @@ export async function addFriend(friendData, currentUserId) {
       return { success: true, data: existingFriend }
     }
 
-    // Create new friend record
+    // Create new friend record (only store basic info - picture comes from users table for signed-up users)
     const { data, error } = await supabase
       .from('friends')
       .insert([{
@@ -239,21 +300,172 @@ export async function addFriend(friendData, currentUserId) {
 
 export async function updateUser(userId, userData) {
   try {
+    // First, try to fetch current user data by id
+    let currentUser = null;
+    
+    // Check if userId is a valid UUID format
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
+    
+    if (isUUID) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (!error && data) {
+        currentUser = data;
+      }
+    }
+    
+    // If not found by UUID, try to find by google_id (in case old ID format is passed)
+    if (!currentUser) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('google_id', userId)
+        .maybeSingle();
+      
+      if (!error && data) {
+        currentUser = data;
+      }
+    }
+    
+    if (!currentUser) {
+      return { success: false, error: 'User not found' };
+    }
+
+    // Build update object with only fields that have actually changed
+    const updateData = {};
+    
+    if (userData.name !== undefined && userData.name !== currentUser.name) {
+      updateData.name = userData.name;
+    }
+    if (userData.email !== undefined && userData.email !== currentUser.email) {
+      updateData.email = userData.email;
+    }
+    if (userData.avatar !== undefined && userData.avatar !== currentUser.avatar) {
+      updateData.avatar = userData.avatar;
+    }
+    if (userData.picture !== undefined && userData.picture !== currentUser.picture) {
+      updateData.picture = userData.picture;
+    }
+    if (userData.phone !== undefined && userData.phone !== currentUser.phone) {
+      updateData.phone = userData.phone;
+    }
+    if (userData.google_id !== undefined && userData.google_id !== currentUser.google_id) {
+      updateData.google_id = userData.google_id;
+    }
+
+    // If nothing has changed, return current user
+    if (Object.keys(updateData).length === 0) {
+      return { success: true, data: currentUser };
+    }
+
     const { data, error } = await supabase
       .from('users')
-      .update({
-        name: userData.name,
-        email: userData.email,
-        avatar: userData.avatar
-      })
-      .eq('id', userId)
+      .update(updateData)
+      .eq('id', currentUser.id) // Always use the actual UUID
       .select()
       .single()
 
-    if (error) throw error
+    if (error) {
+      // Handle unique constraint violations gracefully
+      if (error.code === '23505') {
+        if (error.message.includes('email') || error.details?.includes('email')) {
+          return { success: false, error: 'EMAIL_EXISTS' };
+        } else if (error.message.includes('phone') || error.details?.includes('phone')) {
+          return { success: false, error: 'PHONE_EXISTS' };
+        }
+      }
+      throw error;
+    }
+    
     return { success: true, data }
   } catch (error) {
     return { success: false, error: error.message }
+  }
+}
+
+// Merge phone user account with existing email user account
+export async function mergePhoneUserWithEmail(phoneUserId, email, phoneNumber, newUserData = {}) {
+  try {
+    // Find the existing user with this email
+    const { data: existingUser, error: findError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (findError || !existingUser) {
+      return { success: false, error: 'No existing account found with this email' };
+    }
+
+    // Update the existing user with the phone number and any new data
+    const updateData = {
+      phone: phoneNumber
+    };
+
+    // Optionally update other fields if provided and not already set
+    if (newUserData.name && !existingUser.name) {
+      updateData.name = newUserData.name;
+    }
+    if (newUserData.avatar && !existingUser.avatar) {
+      updateData.avatar = newUserData.avatar;
+    }
+    if (newUserData.picture && !existingUser.picture) {
+      updateData.picture = newUserData.picture;
+    }
+
+    const { data: updatedUser, error: updateError } = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', existingUser.id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Delete the temporary phone user account
+    // First, we need to handle any data associated with the phone user
+    // Transfer any group memberships from phone user to existing user
+    await supabase
+      .from('group_members')
+      .update({ user_id: existingUser.id })
+      .eq('user_id', phoneUserId);
+
+    // Transfer any expense splits
+    await supabase
+      .from('expense_splits')
+      .update({ user_id: existingUser.id })
+      .eq('user_id', phoneUserId);
+
+    // Transfer any expenses paid by phone user
+    await supabase
+      .from('expenses')
+      .update({ paid_by: existingUser.id })
+      .eq('paid_by', phoneUserId);
+
+    // Transfer any friends created by phone user
+    await supabase
+      .from('friends')
+      .update({ created_by: existingUser.id })
+      .eq('created_by', phoneUserId);
+
+    // Now delete the temporary phone user
+    await supabase
+      .from('users')
+      .delete()
+      .eq('id', phoneUserId);
+
+    return { 
+      success: true, 
+      data: updatedUser,
+      merged: true,
+      message: 'Account linked successfully! Your phone number has been added to your existing account.'
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 }
 
@@ -295,11 +507,11 @@ export async function deleteUser(userId) {
 
 export async function createGroup(groupData, currentUserId) {
   try {
-    // First get the user's UUID from their google_id
+    // Verify user exists by their id
     const { data: user } = await supabase
       .from('users')
       .select('id')
-      .eq('google_id', currentUserId)
+      .eq('id', currentUserId)
       .single()
 
     if (!user) {
@@ -425,11 +637,11 @@ export async function createGroup(groupData, currentUserId) {
 
 export async function getUserGroups(userId) {
   try {
-    // First get the user's UUID from their google_id
+    // Verify user exists by their id
     const { data: user } = await supabase
       .from('users')
       .select('id')
-      .eq('google_id', userId)
+      .eq('id', userId)
       .single()
 
     if (!user) {
@@ -914,11 +1126,11 @@ export async function updateExpense(expenseId, expenseData) {
 
 export async function getUserExpenses(userId) {
   try {
-    // First get the user's UUID from their google_id
+    // Verify user exists by their id
     const { data: user } = await supabase
       .from('users')
       .select('id')
-      .eq('google_id', userId)
+      .eq('id', userId)
       .single()
 
     if (!user) {
@@ -1055,11 +1267,11 @@ export async function getUserExpenses(userId) {
 
 export async function getUserExpensesPaginated(userId, page = 1, pageSize = 20) {
   try {
-    // First get the user's UUID from their google_id
+    // Verify user exists by their id
     const { data: user } = await supabase
       .from('users')
       .select('id')
-      .eq('google_id', userId)
+      .eq('id', userId)
       .single()
 
     if (!user) {
@@ -1433,17 +1645,18 @@ export function isSupabaseConfigured() {
 
 // ===== FILE UPLOAD OPERATIONS =====
 
-export async function uploadExpenseImage(file, expenseId) {
+export async function uploadExpenseImage(file, referenceId, type = 'expense') {
   try {
     // Check if Supabase is configured
     if (!isSupabaseConfigured()) {
-      return await uploadImageAsBase64(file, expenseId)
+      return await uploadImageAsBase64(file, referenceId)
     }
 
     // Generate unique filename with timestamp
     const fileExt = file.name.split('.').pop()
-    const fileName = `${expenseId}_${Date.now()}.${fileExt}`
-    const filePath = `expense-receipts/${fileName}`
+    const fileName = `${referenceId}_${Date.now()}.${fileExt}`
+    const folder = type === 'profile' ? 'profile-pictures' : 'expense-receipts'
+    const filePath = `${folder}/${fileName}`
 
     // Try to upload to Supabase storage first
     const { data, error } = await supabase.storage
@@ -1464,7 +1677,7 @@ export async function uploadExpenseImage(file, expenseId) {
                         (typeof error === 'object' && error.error === 'Unauthorized');
                         
       if (isRLSError) {
-        return await uploadImageAsBase64(file, expenseId)
+        return await uploadImageAsBase64(file, referenceId)
       }
       
       
@@ -1474,11 +1687,11 @@ export async function uploadExpenseImage(file, expenseId) {
                            error.statusCode === 404;
                            
       if (isBucketError) {
-        return await uploadImageAsBase64(file, expenseId)
+        return await uploadImageAsBase64(file, referenceId)
       }
       
       // For any other storage error, also fall back to base64 as a safety measure
-      return await uploadImageAsBase64(file, expenseId)
+      return await uploadImageAsBase64(file, referenceId)
     }
 
     // Get public URL for successful storage upload
@@ -1493,12 +1706,12 @@ export async function uploadExpenseImage(file, expenseId) {
       storageType: 'supabase'
     }
   } catch (error) {
-    return await uploadImageAsBase64(file, expenseId)
+    return await uploadImageAsBase64(file, referenceId)
   }
 }
 
 // Fallback function to store images as base64 in database
-async function uploadImageAsBase64(file, expenseId) {
+async function uploadImageAsBase64(file, referenceId) {
   return new Promise((resolve) => {
     // Validate file size (max 2MB for base64 to avoid database bloat)
     if (file.size > 2 * 1024 * 1024) {
@@ -1516,7 +1729,7 @@ async function uploadImageAsBase64(file, expenseId) {
       resolve({
         success: true,
         publicUrl: base64, // base64 data URL can be used directly as src
-        filePath: `base64_${expenseId}_${Date.now()}`, // dummy path for identification
+        filePath: `base64_${referenceId}_${Date.now()}`, // dummy path for identification
         storageType: 'base64'
       })
     }
@@ -1600,11 +1813,11 @@ export async function createPendingInvitation(groupId, email, invitedBy) {
       return { success: false, error: 'Database not available in demo mode' }
     }
 
-    // Get the inviter's UUID from their google_id
+    // Verify inviter exists by their id
     const { data: inviterUser } = await supabase
       .from('users')
       .select('id')
-      .eq('google_id', invitedBy)
+      .eq('id', invitedBy)
       .single()
 
     if (!inviterUser) {
