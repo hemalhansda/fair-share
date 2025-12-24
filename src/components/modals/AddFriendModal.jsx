@@ -24,7 +24,6 @@ const AddFriendModal = ({
       });
       handleClose();
     } catch (error) {
-      console.error('Failed to add friend:', error);
     } finally {
       setIsLoading(false);
     }

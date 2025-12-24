@@ -40,7 +40,6 @@ export async function createOrUpdateUser(googleUser) {
         userData = placeholderResult.data;
         autoJoinedGroups = placeholderResult.groupsJoined;
         isNewUser = true;
-        console.log(`Converted placeholder user, joined ${autoJoinedGroups} groups`);
       } else {
         // Create new user (let Supabase generate UUID for id)
         const { data, error } = await supabase
@@ -71,7 +70,6 @@ export async function createOrUpdateUser(googleUser) {
     if (error) throw error
     return { success: true, data }
   } catch (error) {
-    console.error('Error creating/updating user:', error)
     return { success: false, error: error.message }
   }
 }
@@ -86,7 +84,6 @@ export async function getAllUsers() {
     if (error) throw error
     return { success: true, data: data || [] }
   } catch (error) {
-    console.error('Error fetching users:', error)
     return { success: false, error: error.message, data: [] }
   }
 }
@@ -115,7 +112,6 @@ export async function getUserFriends(userId) {
       .eq('created_by', user.id)
 
     if (myFriendsError) {
-      console.log('Friends table error:', myFriendsError.message)
     } else {
       myFriends?.forEach(friend => {
         if (!friendsSet.has(friend.id)) {
@@ -191,7 +187,6 @@ export async function getUserFriends(userId) {
 
     return { success: true, data: result }
   } catch (error) {
-    console.error('Error fetching user friends:', error)
     return { success: false, error: error.message, data: [] }
   }
 }
@@ -236,16 +231,8 @@ export async function addFriend(friendData, currentUserId) {
 
     if (error) throw error
 
-    console.log('Friend added successfully:', data)
     return { success: true, data }
   } catch (error) {
-    console.error('Error adding friend:', error)
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      hint: error.hint,
-      details: error.details
-    })
     return { success: false, error: error.message }
   }
 }
@@ -266,7 +253,6 @@ export async function updateUser(userId, userData) {
     if (error) throw error
     return { success: true, data }
   } catch (error) {
-    console.error('Error updating user:', error)
     return { success: false, error: error.message }
   }
 }
@@ -301,7 +287,6 @@ export async function deleteUser(userId) {
     if (error) throw error
     return { success: true }
   } catch (error) {
-    console.error('Error deleting user:', error)
     return { success: false, error: error.message }
   }
 }
@@ -367,7 +352,6 @@ export async function createGroup(groupData, currentUserId) {
           finalUuid = userByEmail.id
         } else {
           // User doesn't exist yet, create placeholder user entry
-          console.log(`Creating placeholder user for email: ${memberId}`)
           const { data: placeholderUser, error: placeholderError } = await supabase
             .from('users')
             .insert([{
@@ -380,10 +364,8 @@ export async function createGroup(groupData, currentUserId) {
             .single()
           
           if (placeholderError) {
-            console.error('Error creating placeholder user:', placeholderError)
           } else {
             finalUuid = placeholderUser.id
-            console.log(`Created placeholder user with UUID: ${finalUuid}`)
           }
         }
       } else {
@@ -410,7 +392,6 @@ export async function createGroup(groupData, currentUserId) {
         if (memberUser) {
           finalUuid = memberUser.id
         } else {
-          console.warn(`Could not find user with ID: ${memberId}`)
         }
       }
       
@@ -421,7 +402,6 @@ export async function createGroup(groupData, currentUserId) {
       }
     }
     
-    console.log('Group members to add:', memberUuids.length)
 
     const memberInserts = memberUuids.map(memberId => ({
       group_id: group.id,
@@ -439,13 +419,6 @@ export async function createGroup(groupData, currentUserId) {
       data: group
     }
   } catch (error) {
-    console.error('Error creating group:', error)
-    console.error('Error details:', {
-      message: error.message,
-      code: error.code,
-      hint: error.hint,
-      details: error.details
-    })
     return { success: false, error: error.message }
   }
 }
@@ -480,7 +453,6 @@ export async function getUserGroups(userId) {
 
     if (error) throw error
 
-    console.log('Raw groups data from database:', data);
 
     // For each group, get all members (but only for groups the user belongs to)
     const groupsWithMembers = await Promise.all(
@@ -501,18 +473,15 @@ export async function getUserGroups(userId) {
       })
     )
 
-    console.log('Processed groups with members:', groupsWithMembers);
 
     return { success: true, data: groupsWithMembers }
   } catch (error) {
-    console.error('Error fetching groups:', error)
     return { success: false, error: error.message, data: [] }
   }
 }
 
 export async function updateGroup(groupId, groupData) {
   try {
-    console.log('Updating group with data:', { groupId, groupData });
     
     // Update group basic info
     const { data: group, error: groupError } = await supabase
@@ -527,11 +496,9 @@ export async function updateGroup(groupId, groupData) {
       .single()
 
     if (groupError) {
-      console.error('Group update error:', groupError);
       throw groupError;
     }
     
-    console.log('Group updated successfully:', group);
 
     // Update group members if provided
     if (groupData.members) {
@@ -556,7 +523,6 @@ export async function updateGroup(groupId, groupData) {
 
     return { success: true, data: group }
   } catch (error) {
-    console.error('Error updating group:', error)
     return { success: false, error: error.message }
   }
 }
@@ -588,7 +554,6 @@ export async function deleteGroup(groupId) {
     if (error) throw error
     return { success: true }
   } catch (error) {
-    console.error('Error deleting group:', error)
     return { success: false, error: error.message }
   }
 }
@@ -619,11 +584,9 @@ export async function createExpense(expenseData) {
         .single()
       
       if (userError || !payerUser) {
-        console.error('User lookup error:', userError);
         throw new Error(`Payer not found for Google ID: ${paidById}`)
       }
       payerUuid = payerUser.id
-      console.log(`Converted Google ID ${paidById} to UUID ${payerUuid}`);
     }
 
     // Create the expense
@@ -672,18 +635,14 @@ export async function createExpense(expenseData) {
           .eq('id', expense.id);
 
         if (updateError) {
-          console.error('Error updating expense with image:', updateError);
           imageUploadWarning = 'Expense created but image upload failed';
         } else {
-          console.log(`Image uploaded successfully using ${imageResult.storageType} storage`);
         }
       } else {
-        console.error('Failed to upload image:', imageResult.error);
         imageUploadWarning = imageResult.error;
         
         // Don't fail the entire expense creation if image upload fails
         if (!imageResult.isConfigError && !imageResult.isPermissionError) {
-          console.warn('Image upload failed, but expense will still be created');
         }
       }
     }
@@ -710,7 +669,6 @@ export async function createExpense(expenseData) {
             .single()
           
           if (splitUserError || !splitUser) {
-            console.error('Split user lookup error:', splitUserError);
             throw new Error(`Split user not found for Google ID: ${userId}`);
           }
           userUuid = splitUser.id
@@ -743,7 +701,6 @@ export async function createExpense(expenseData) {
             .single()
           
           if (splitUserError || !splitUser) {
-            console.error('Split user lookup error:', splitUserError);
             throw new Error(`Split user not found for Google ID: ${userId}`);
           }
           userUuid = splitUser.id
@@ -770,7 +727,6 @@ export async function createExpense(expenseData) {
     }
     return result;
   } catch (error) {
-    console.error('Error creating expense:', error)
     return { success: false, error: error.message }
   }
 }
@@ -799,11 +755,9 @@ export async function updateExpense(expenseId, expenseData) {
         .single()
       
       if (userError || !payerUser) {
-        console.error('User lookup error:', userError);
         throw new Error(`Payer not found for Google ID: ${paidById}`)
       }
       payerUuid = payerUser.id
-      console.log(`Converted Google ID ${paidById} to UUID ${payerUuid}`);
     }
 
     // Update the expense
@@ -860,7 +814,6 @@ export async function updateExpense(expenseId, expenseData) {
             .single()
           
           if (splitUserError || !splitUser) {
-            console.error('Split user lookup error:', splitUserError);
             throw new Error(`Split user not found for Google ID: ${userId}`);
           }
           userUuid = splitUser.id
@@ -893,7 +846,6 @@ export async function updateExpense(expenseId, expenseData) {
             .single()
           
           if (splitUserError || !splitUser) {
-            console.error('Split user lookup error:', splitUserError);
             throw new Error(`Split user not found for Google ID: ${userId}`);
           }
           userUuid = splitUser.id
@@ -934,9 +886,7 @@ export async function updateExpense(expenseId, expenseData) {
           .eq('id', expenseId);
 
         if (updateError) {
-          console.error('Error updating expense with new image:', updateError);
         } else {
-          console.log(`Image updated successfully using ${imageResult.storageType} storage`);
         }
       }
     } else if (expenseData.removeImage && expenseData.existingImagePath) {
@@ -953,13 +903,11 @@ export async function updateExpense(expenseId, expenseData) {
         .eq('id', expenseId);
 
       if (clearError) {
-        console.error('Error clearing image from expense:', clearError);
       }
     }
 
     return { success: true, data: expense }
   } catch (error) {
-    console.error('Error updating expense:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1101,7 +1049,6 @@ export async function getUserExpenses(userId) {
 
     return { success: true, data: transformedExpenses }
   } catch (error) {
-    console.error('Error fetching expenses:', error)
     return { success: false, error: error.message, data: [] }
   }
 }
@@ -1265,7 +1212,6 @@ export async function getUserExpensesPaginated(userId, page = 1, pageSize = 20) 
       currentPage: page
     }
   } catch (error) {
-    console.error('Error fetching paginated expenses:', error)
     return { success: false, error: error.message, data: [], hasMore: false, totalCount: 0 }
   }
 }
@@ -1314,7 +1260,6 @@ export async function getGroupExpenses(groupId) {
 
     return { success: true, data: transformedExpenses }
   } catch (error) {
-    console.error('Error fetching group expenses:', error)
     return { success: false, error: error.message, data: [] }
   }
 }
@@ -1328,7 +1273,6 @@ export function calculateBalances(expenses, currentUserId, users) {
 
   // Debug logging
   if (process.env.NODE_ENV === 'development' && expenses.length > 0) {
-    console.log(`calculateBalances: Processing ${expenses.length} expenses for user ${currentUserId}`);
   }
 
   expenses.forEach((expense, index) => {
@@ -1344,23 +1288,7 @@ export function calculateBalances(expenses, currentUserId, users) {
       splitBetween = expense.split_between || expense.splitBetween || expense.split_with || [];
     }
     
-    // Debug logging for each expense
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Expense ${index + 1}:`, {
-        description: expense.description,
-        amount: expense.amount,
-        paidById,
-        splitBetween,
-        currentUserId,
-        userIsPayer: paidById === currentUserId,
-        userInSplit: splitBetween.includes(currentUserId)
-      });
-    }
-    
     if (splitBetween.length === 0) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Skipping expense ${expense.description} - no split data`);
-      }
       return; // Skip if no splits
     }
     
@@ -1384,16 +1312,6 @@ export function calculateBalances(expenses, currentUserId, users) {
     if (amount > 0) owedToUser += amount
     if (amount < 0) userOwes += Math.abs(amount)
   })
-
-  // Debug final result
-  if (process.env.NODE_ENV === 'development' && expenses.length > 0) {
-    console.log(`calculateBalances result:`, {
-      totalOwed: owedToUser,
-      totalOwes: userOwes,
-      debts,
-      currentUserId
-    });
-  }
 
   return { totalOwed: owedToUser, totalOwes: userOwes, details: debts }
 }
@@ -1459,7 +1377,6 @@ export async function updateUserPreferences(userId, preferences) {
 
     return { success: true, data: preferences }
   } catch (error) {
-    console.error('Error updating user preferences:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1499,7 +1416,6 @@ export async function getUserPreferences(userId) {
       preferences: { currency: 'USD' }
     }
   } catch (error) {
-    console.error('Error fetching user preferences:', error)
     return { 
       success: false, 
       error: error.message,
@@ -1521,7 +1437,6 @@ export async function uploadExpenseImage(file, expenseId) {
   try {
     // Check if Supabase is configured
     if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, using base64 storage')
       return await uploadImageAsBase64(file, expenseId)
     }
 
@@ -1549,11 +1464,9 @@ export async function uploadExpenseImage(file, expenseId) {
                         (typeof error === 'object' && error.error === 'Unauthorized');
                         
       if (isRLSError) {
-        console.info('Using base64 storage (Supabase storage requires configuration)')
         return await uploadImageAsBase64(file, expenseId)
       }
       
-      console.error('Storage upload error:', error)
       
       // Handle bucket not found errors
       const isBucketError = error.message?.includes('not found') || 
@@ -1561,12 +1474,10 @@ export async function uploadExpenseImage(file, expenseId) {
                            error.statusCode === 404;
                            
       if (isBucketError) {
-        console.warn('Storage bucket not found, falling back to base64 storage')
         return await uploadImageAsBase64(file, expenseId)
       }
       
       // For any other storage error, also fall back to base64 as a safety measure
-      console.warn('Storage upload failed, falling back to base64 storage. Error:', error)
       return await uploadImageAsBase64(file, expenseId)
     }
 
@@ -1582,7 +1493,6 @@ export async function uploadExpenseImage(file, expenseId) {
       storageType: 'supabase'
     }
   } catch (error) {
-    console.info('Using base64 storage fallback')
     return await uploadImageAsBase64(file, expenseId)
   }
 }
@@ -1629,13 +1539,11 @@ export async function deleteExpenseImage(filePath) {
 
     // If it's a base64 stored image, no actual file to delete
     if (filePath.startsWith('base64_')) {
-      console.log('Base64 image path, no storage file to delete')
       return { success: true }
     }
 
     // Check if Supabase is configured for actual storage deletion
     if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, skipping storage deletion')
       return { success: true } // Don't block the operation
     }
 
@@ -1644,14 +1552,12 @@ export async function deleteExpenseImage(filePath) {
       .remove([filePath])
 
     if (error) {
-      console.error('Error deleting expense image:', error)
       // Don't fail the operation if storage deletion fails
       return { success: true, warning: error.message }
     }
 
     return { success: true }
   } catch (error) {
-    console.error('Error deleting expense image:', error)
     // Don't fail the operation if deletion fails
     return { success: true, warning: error.message || 'Failed to delete image file' }
   }
@@ -1681,7 +1587,6 @@ export async function getExpenseImageUrl(filePath) {
 
     return { success: true, url: data.publicUrl }
   } catch (error) {
-    console.error('Error getting expense image URL:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1692,7 +1597,6 @@ export async function createPendingInvitation(groupId, email, invitedBy) {
   try {
     // Check if Supabase is configured
     if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, skipping invitation creation')
       return { success: false, error: 'Database not available in demo mode' }
     }
 
@@ -1728,7 +1632,6 @@ export async function createPendingInvitation(groupId, email, invitedBy) {
 
     return { success: true, data: invitation }
   } catch (error) {
-    console.error('Error creating pending invitation:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1760,7 +1663,6 @@ export async function getPendingInvitationsForEmail(email) {
 
     return { success: true, data: invitations || [] }
   } catch (error) {
-    console.error('Error getting pending invitations:', error)
     return { success: false, error: error.message }
   }
 }
@@ -1787,7 +1689,6 @@ export async function convertPlaceholderUser(userEmail, googleUserData) {
       return { success: false, groupsJoined: 0 }
     }
 
-    console.log(`Converting placeholder user ${placeholderUser.id} to real user`)
 
     // Update the placeholder user with real Google user data
     const { data: updatedUser, error: updateError } = await supabase
@@ -1821,7 +1722,6 @@ export async function convertPlaceholderUser(userEmail, googleUserData) {
       message: groupsJoined > 0 ? `Automatically joined ${groupsJoined} group(s)` : 'No groups to join'
     }
   } catch (error) {
-    console.error('Error converting placeholder user:', error)
     return { success: false, error: error.message, groupsJoined: 0 }
   }
 }
@@ -1874,7 +1774,6 @@ export async function acceptPendingInvitations(userEmail, userUuid) {
       .eq('email', userEmail.toLowerCase())
 
     if (deleteError) {
-      console.error('Error deleting pending invitations:', deleteError)
       // Don't fail the process if deletion fails
     }
 
@@ -1884,7 +1783,6 @@ export async function acceptPendingInvitations(userEmail, userUuid) {
       groupsJoined: invitations.length
     }
   } catch (error) {
-    console.error('Error accepting pending invitations:', error)
     return { success: false, error: error.message, groupsJoined: 0 }
   }
 }

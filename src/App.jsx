@@ -197,7 +197,6 @@ function AppRouter() {
         setTotalExpensesCount(result.totalCount);
       }
     } catch (error) {
-      console.error('Error loading more expenses:', error);
     }
   };
   
@@ -229,7 +228,6 @@ function AppRouter() {
           setCurrentUser(userData);
         }
       } catch (error) {
-        console.error('Error loading saved auth state:', error);
         // Clear invalid data
         localStorage.removeItem('fyrshare_auth_state');
         localStorage.removeItem('fyrshare_user');
@@ -256,12 +254,10 @@ function AppRouter() {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Session error:', error);
           return;
         }
 
         if (session?.user) {
-          console.log('User authenticated:', session.user.email);
           
           const googleUserData = {
             id: session.user.id,
@@ -295,7 +291,6 @@ function AppRouter() {
           navigate('/dashboard');
         }
       } catch (error) {
-        console.error('Auth callback error:', error);
       }
     };
 
@@ -304,7 +299,6 @@ function AppRouter() {
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event);
       if (event === 'SIGNED_IN') {
         handleAuthCallback();
       }
@@ -312,7 +306,6 @@ function AppRouter() {
 
     // Listen for app resume (when returning from browser)
     const handleAppResume = () => {
-      console.log('App resumed, checking auth...');
       handleAuthCallback();
     };
     
@@ -334,9 +327,7 @@ function AppRouter() {
         if (window.google.accounts.id.disableFedCm) {
           try {
             window.google.accounts.id.disableFedCm();
-            console.log('FedCM disabled successfully');
           } catch (error) {
-            console.log('FedCM disable failed (this is normal):', error);
           }
         }
         
@@ -350,7 +341,6 @@ function AppRouter() {
           context: 'signin'
         });
         
-        console.log('Google OAuth initialized successfully');
       }
     };
 
@@ -361,7 +351,6 @@ function AppRouter() {
       script.async = true;
       script.defer = true;
       script.onload = initGoogleAuth;
-      script.onerror = () => console.error('Failed to load Google OAuth script');
       document.head.appendChild(script);
     } else {
       initGoogleAuth();
@@ -512,7 +501,6 @@ function AppRouter() {
         setTotalExpensesCount(expensesResult.data.length);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
     } finally {
       setIsDataLoading(false);
     }
@@ -538,21 +526,17 @@ function AppRouter() {
 
       // If no expenses, balances are zero but this is normal
       if (expenses.length === 0) {
-        console.log('No expenses found - balances will be zero');
         setBalances({ totalOwed: 0, totalOwes: 0, details: {} });
         return;
       }
 
       try {
-        console.log(`Calculating balances for ${expenses.length} expenses`);
         
         // Find current user's UUID from the users array
         // The users array includes the current user's data with their UUID
         const currentUserData = users.find(u => u.google_id === currentUser.id || u.id === currentUser.id);
         const currentUserUuid = currentUserData?.id || currentUser.id;
         
-        console.log('Current user Google ID:', currentUser.id);
-        console.log('Current user UUID:', currentUserUuid);
         
         const userCurrency = userPreferences.currency || 'USD';
         const convertedExpenses = [];
@@ -580,10 +564,8 @@ function AppRouter() {
 
         // Calculate balances with converted amounts using UUID
         const newBalances = calculateBalances(convertedExpenses, currentUserUuid, users);
-        console.log('Calculated balances:', newBalances);
         setBalances(newBalances);
       } catch (error) {
-        console.error('Error calculating balances with currency conversion:', error);
         // Fallback to original calculation with UUID lookup
         const currentUserData = users.find(u => u.google_id === currentUser.id || u.id === currentUser.id);
         const currentUserUuid = currentUserData?.id || currentUser.id;
@@ -608,7 +590,6 @@ function AppRouter() {
         return formatCurrency(convertedAmount, userCurrency);
       }
     } catch (error) {
-      console.error('Currency conversion failed:', error);
     }
     
     // Fallback: show original currency
@@ -736,13 +717,10 @@ function AppRouter() {
       ));
     } else {
       // Database mode
-      console.log('Updating group:', groupId, 'with data:', groupData);
       const result = await updateGroup(groupId, groupData);
-      console.log('Update result:', result);
       if (result.success) {
         // Reload groups to get updated data
         const groupsResult = await getUserGroups(currentUser.id);
-        console.log('Reloaded groups:', groupsResult.data);
         if (groupsResult.success) {
           setGroups(groupsResult.data);
         }
@@ -852,7 +830,6 @@ function AppRouter() {
           showError('Failed to record settlement: ' + result.error);
         }
       } catch (error) {
-        console.error('Error creating settlement:', error);
         showError('Failed to record settlement');
       }
     }
@@ -972,7 +949,6 @@ function AppRouter() {
       if (!isDemoMode) {
         const result = await createOrUpdateUser(googleUserData);
         if (!result.success) {
-          console.error('Failed to create/update user:', result.error);
           // Continue anyway, might be network issue
         } else {
           autoJoinedGroups = result.autoJoinedGroups || 0;
@@ -1002,19 +978,16 @@ function AppRouter() {
       }, 1500);
       
     } catch (error) {
-      console.error('Google login error:', error);
       setIsGoogleLoading(false);
       showError('Login failed. Please try again.');
     }
   };
 
   const handleGoogleLogin = async () => {
-    console.log('handleGoogleLogin called');
     
     const isNative = Capacitor.isNativePlatform();
     const platform = Capacitor.getPlatform();
     
-    console.log('Platform:', platform, 'isNative:', isNative);
     
     // For native iOS/Android, use Supabase OAuth with Browser plugin
     if (isNative) {
@@ -1028,14 +1001,12 @@ function AppRouter() {
         });
         
         if (error) {
-          console.error('Supabase OAuth error:', error);
           showError('Failed to initiate Google sign-in: ' + error.message);
           setIsGoogleLoading(false);
           return;
         }
         
         if (data?.url) {
-          console.log('Opening OAuth URL:', data.url);
           // Open in external browser
           await Browser.open({ 
             url: data.url,
@@ -1043,7 +1014,6 @@ function AppRouter() {
           });
         }
       } catch (error) {
-        console.error('OAuth exception:', error);
         showError('Authentication error: ' + error.message);
         setIsGoogleLoading(false);
       }
@@ -1059,7 +1029,6 @@ function AppRouter() {
     setIsGoogleLoading(true);
     
     try {
-      console.log('Attempting Google prompt');
       
       // Clear any previous state that might interfere
       if (window.google.accounts.id.cancel) {
@@ -1088,7 +1057,6 @@ function AppRouter() {
         if (button) {
           button.click();
         } else {
-          console.error('Google sign-in button not found');
           setIsGoogleLoading(false);
           // Fallback to prompt method
           fallbackToPrompt();
@@ -1098,47 +1066,37 @@ function AppRouter() {
       }, 100);
       
     } catch (error) {
-      console.error('Google login error:', error);
       setIsGoogleLoading(false);
       fallbackToPrompt();
     }
   };
 
   const fallbackToPrompt = () => {
-    console.log('Falling back to prompt method');
     
     try {
       window.google.accounts.id.prompt((notification) => {
-        console.log('Prompt notification:', notification);
         setIsGoogleLoading(false);
         
         if (notification.isNotDisplayed()) {
           const reason = notification.getNotDisplayedReason();
-          console.log('Prompt not displayed:', reason);
           
           switch (reason) {
             case 'browser_not_supported':
               showError('Your browser doesn\'t support Google Sign-In. Please try a different browser.');
               break;
             case 'unregistered_origin':
-              console.error('Domain not authorized for Google OAuth');
               showError('Authentication setup issue. Please ensure localhost:5173 is authorized.');
               break;
             case 'suppressed_by_user':
-              console.log('User previously dismissed Google sign-in');
               break;
             default:
-              console.log('Google sign-in not available:', reason);
               break;
           }
         } else if (notification.isSkippedMoment()) {
-          console.log('Prompt skipped:', notification.getSkippedReason());
         } else if (notification.isDismissedMoment()) {
-          console.log('Prompt dismissed:', notification.getDismissedReason());
         }
       });
     } catch (error) {
-      console.error('Fallback prompt failed:', error);
       setIsGoogleLoading(false);
     }
   };
@@ -1243,18 +1201,8 @@ function AppRouter() {
       // Return net balance (negative = you owe, positive = you are owed)
       const netBalance = totalPaid - totalOwes;
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Group ${groupId} balance calculation:`, {
-          expenses: groupExpenses.length,
-          totalPaid,
-          totalOwes,
-          netBalance
-        });
-      }
-      
       return netBalance;
     } catch (error) {
-      console.error('Error calculating group balance:', error);
       return 0;
     }
   };

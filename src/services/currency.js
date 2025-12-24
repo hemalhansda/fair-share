@@ -63,7 +63,6 @@ export async function getExchangeRates(baseCurrency = 'USD') {
       throw new Error('Invalid response format');
     }
   } catch (error) {
-    console.error('Failed to fetch exchange rates:', error);
     
     // Return fallback rates if API fails
     const fallbackRates = getFallbackRates(baseCurrency);
@@ -131,7 +130,6 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
       throw new Error(`Exchange rate not found for ${fromCurrency} to ${toCurrency}`);
     }
   } catch (error) {
-    console.error('Currency conversion failed:', error);
     return { 
       success: false, 
       amount: amount, 

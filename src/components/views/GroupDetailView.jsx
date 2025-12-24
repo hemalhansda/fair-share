@@ -49,7 +49,6 @@ const GroupDetailView = ({
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('Failed to update group:', error);
       throw error;
     }
   };
@@ -105,7 +104,6 @@ const GroupDetailView = ({
               convertedAmount = amount;
             }
           } catch (error) {
-            console.error('Currency conversion failed for balance calculation:', error);
           }
         }
 
@@ -130,10 +128,6 @@ const GroupDetailView = ({
     const calculateContributions = async () => {
       const contributions = {};
       
-      console.log('=== Starting Contribution Calculation ===');
-      console.log('Group Members:', groupMembers);
-      console.log('Current User:', currentUser);
-      console.log('Group Expenses Count:', groupExpenses.length);
       
       // Initialize all members with 0
       groupMembers.forEach(member => {
@@ -150,7 +144,6 @@ const GroupDetailView = ({
         const paidById = expense.paid_by;
         const expenseCurrency = expense.currency || 'USD';
         
-        console.log(`Processing expense: ${expense.description}, amount: ${expense.amount}, currency: ${expenseCurrency}, paid_by: ${paidById}`);
         
         // Convert expense amount to group's default currency
         let convertedAmount = expense.amount;
@@ -159,33 +152,26 @@ const GroupDetailView = ({
             const { success, amount } = await convertCurrency(expense.amount, expenseCurrency, groupCurrency);
             if (success) {
               convertedAmount = amount;
-              console.log(`Converted ${expense.amount} ${expenseCurrency} to ${convertedAmount} ${groupCurrency}`);
             }
           } catch (error) {
-            console.error('Currency conversion failed for expense:', expense.id, error);
           }
         }
 
         const splitCount = expense.expense_splits?.length || 1;
         const splitAmount = convertedAmount / splitCount;
         
-        console.log(`Split amount: ${splitAmount} (total: ${convertedAmount}, splits: ${splitCount})`);
 
         // Add to what this person paid (in converted currency)
         if (contributions[paidById]) {
           contributions[paidById].paid += convertedAmount;
-          console.log(`${paidById} paid: ${contributions[paidById].paid}`);
         } else {
-          console.warn(`Paid by user ${paidById} not found in group members`);
         }
 
         // Add to what each person in the split owes (in converted currency)
         expense.expense_splits?.forEach(split => {
           if (contributions[split.user_id]) {
             contributions[split.user_id].owes += splitAmount;
-            console.log(`${split.user_id} owes: ${contributions[split.user_id].owes}`);
           } else {
-            console.warn(`Split user ${split.user_id} not found in group members`);
           }
         });
       }
@@ -198,13 +184,6 @@ const GroupDetailView = ({
       setMemberContributions(contributions);
       
       // Debug logging
-      console.log('=== Final Contributions ===');
-      console.log('Group:', group?.name);
-      console.log('All Member Contributions:', contributions);
-      console.log('Current User Google ID:', currentUser?.id);
-      console.log('Current User UUID:', currentUserUuid);
-      console.log('Current User Contribution:', contributions[currentUserUuid]);
-      console.log('=== End Calculation ===');
     };
 
     if (groupMembers.length > 0) {
@@ -486,7 +465,6 @@ const GroupDetailView = ({
         userCurrency={groupCurrency}
         onEdit={onEditExpense}
         onUpdate={(updatedExpense) => {
-          console.log('Expense updated:', updatedExpense);
           setShowExpenseDetail(false);
           setSelectedExpense(null);
         }}

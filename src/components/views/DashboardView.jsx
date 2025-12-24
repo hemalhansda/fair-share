@@ -190,7 +190,6 @@ const DashboardView = ({
       userCurrency={userCurrency}
       onEdit={onEditExpense}
       onUpdate={(updatedExpense) => {
-        console.log('Expense updated:', updatedExpense);
         setShowExpenseDetail(false);
         setSelectedExpense(null);
       }}

@@ -40,7 +40,6 @@ const ExpenseItem = ({ expense, users, currentUser, formatMoney, userCurrency = 
           setConvertedAmount(expense.amount); // Fallback to original amount
         }
       } catch (error) {
-        console.error('Currency conversion failed:', error);
         setConvertedAmount(expense.amount); // Fallback to original amount
       } finally {
         setIsConverting(false);

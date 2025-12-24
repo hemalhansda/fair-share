@@ -51,7 +51,6 @@ const AddGroupModal = ({
       await onAddGroup(group);
       handleClose();
     } catch (error) {
-      console.error('Failed to create group:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -45,7 +45,6 @@ const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
         });
       } catch (error) {
         if (error.name !== 'AbortError') {
-          console.error('Error sharing:', error);
         }
       }
     }
@@ -71,7 +70,6 @@ const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
 
       // Check if EmailJS is configured
       if (!serviceId || !templateId || !publicKey) {
-        console.error('EmailJS not configured. Please set up environment variables in .env file.');
         alert('Email service not configured. Please add EmailJS credentials to your .env file.');
         setIsSending(false);
         return;
@@ -87,17 +85,14 @@ const InviteFriendModal = ({ isOpen, onClose, currentUser }) => {
         message: `I've been using fyrShare to manage shared expenses with friends and groups. Join me!`
       };
 
-      console.log('Sending email with params:', templateParams);
 
       const response = await emailjs.send(serviceId, templateId, templateParams, publicKey);
       
-      console.log('EmailJS response:', response);
       
       setSendStatus('success');
       setEmail('');
       setTimeout(() => setSendStatus(null), 5000);
     } catch (error) {
-      console.error('Failed to send email:', error);
       setSendStatus('error');
       setTimeout(() => setSendStatus(null), 3000);
     } finally {

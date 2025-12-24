@@ -97,7 +97,6 @@ const AddExpenseModal = ({
       await onAddExpense(expense);
       handleClose();
     } catch (error) {
-      console.error('Error adding expense:', error);
       setIsLoading(false);
     }
   };

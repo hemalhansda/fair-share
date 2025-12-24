@@ -23,7 +23,6 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
       await onUpdatePreferences({ currency: selectedCurrency });
       onClose();
     } catch (error) {
-      console.error('Failed to update preferences:', error);
     } finally {
       setIsSubmitting(false);
     }

@@ -106,7 +106,6 @@ const ExpenseDetailModal = ({
 
         setConvertedAmounts(conversions);
       } catch (error) {
-        console.error('Currency conversion failed:', error);
         setConvertedAmounts({});
       } finally {
         setIsConverting(false);
@@ -215,7 +214,6 @@ const ExpenseDetailModal = ({
         showError('Failed to update expense: ' + result.error);
       }
     } catch (error) {
-      console.error('Error updating expense:', error);
       showError('Failed to update expense');
     } finally {
       setIsLoading(false);
