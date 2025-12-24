@@ -160,7 +160,7 @@ function AppRouter() {
   const { alert, showError, showSuccess, showWarning, hideAlert } = useAlert();
   
   // Custom confirmation system
-  const { confirmState, hideConfirm, confirmDelete } = useConfirm();
+  const { confirmState, showConfirm, hideConfirm, confirmDelete } = useConfirm();
   
   // Navigation State
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -1165,6 +1165,17 @@ function AppRouter() {
     navigate('/welcome');
   };
 
+  const handleLogoutWithConfirm = () => {
+    showConfirm({
+      title: 'Log Out',
+      message: 'Are you sure you want to log out?',
+      onConfirm: handleLogout,
+      confirmText: 'Log Out',
+      cancelText: 'Cancel',
+      variant: 'danger'
+    });
+  };
+
   // Feature slides data
   const featureSlides = [
     {
@@ -1281,7 +1292,7 @@ function AppRouter() {
               <AppLayout 
                 currentUser={currentUser}
                 setSelectedGroup={setSelectedGroup}
-                handleLogout={handleLogout}
+                handleLogout={handleLogoutWithConfirm}
                 setIsExpenseModalOpen={setIsExpenseModalOpen}
                 setIsSettingsModalOpen={setIsSettingsModalOpen}
               />
@@ -1449,7 +1460,7 @@ function AppRouter() {
         onClose={() => setIsSettingsModalOpen(false)}
         userPreferences={userPreferences}
         onUpdatePreferences={handleUpdatePreferences}
-        handleLogout={handleLogout}
+        handleLogout={handleLogoutWithConfirm}
       />
 
       {/* Custom Confirmation Dialog */}
