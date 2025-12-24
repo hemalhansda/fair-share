@@ -1092,7 +1092,8 @@ export async function getUserExpenses(userId) {
       paid_by_user: expense.paid_by_user,
       expense_splits: expense.expense_splits,
       groups: expense.groups,
-      category: expense.category
+      category: expense.category,
+      receipt_image_url: expense.receipt_image_url
     }))
 
     // Sort by created_at
@@ -1250,7 +1251,7 @@ export async function getUserExpensesPaginated(userId, page = 1, pageSize = 20) 
       expense_splits: expense.expense_splits,
       groups: expense.groups,
       category: expense.category,
-      image_url: expense.image_url
+      receipt_image_url: expense.receipt_image_url
     }))
 
     // Sort by created_at to maintain order

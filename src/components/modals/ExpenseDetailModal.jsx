@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, User, Users, Receipt, DollarSign, Edit, Save, XCircle } from 'lucide-react';
+import { X, Calendar, User, Users, Receipt, DollarSign, Edit, Save, XCircle, Image, ZoomIn, ZoomOut } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
@@ -22,6 +22,7 @@ const ExpenseDetailModal = ({
   const [isLoading, setIsLoading] = useState(false);
   const [convertedAmounts, setConvertedAmounts] = useState({});
   const [isConverting, setIsConverting] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(false);
   
   // Custom alert system
   const { showError, showSuccess } = useAlert();
@@ -476,6 +477,51 @@ const ExpenseDetailModal = ({
             </div>
           )}
         </div>
+
+        {/* Receipt Image */}
+        {expense.receipt_image_url && !isEditing && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-3">
+              <Image className="w-4 h-4" />
+              Receipt
+            </div>
+            <div 
+              className="relative cursor-pointer group"
+              onClick={() => setShowImagePreview(true)}
+            >
+              <img 
+                src={expense.receipt_image_url} 
+                alt="Receipt" 
+                className="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-white"
+              />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center">Click to enlarge</p>
+          </div>
+        )}
+
+        {/* Full Screen Image Preview Modal */}
+        {showImagePreview && expense.receipt_image_url && (
+          <div 
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+            onClick={() => setShowImagePreview(false)}
+          >
+            <button
+              onClick={() => setShowImagePreview(false)}
+              className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <img 
+              src={expense.receipt_image_url} 
+              alt="Receipt" 
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        )}
 
         {/* Split Members - Editable in edit mode */}
         {isEditing && (

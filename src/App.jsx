@@ -503,12 +503,13 @@ function AppRouter() {
       }
 
       // Load user's expenses (only expenses they're involved in)
-      const expensesResult = await getUserExpensesPaginated(currentUser.id, 1, 20);
+      // Use non-paginated version to ensure all expenses are loaded
+      // This ensures consistency with refreshes after adding/updating expenses
+      const expensesResult = await getUserExpenses(currentUser.id);
       if (expensesResult.success) {
         setExpenses(expensesResult.data);
-        setExpensesPage(1);
-        setHasMoreExpenses(expensesResult.hasMore);
-        setTotalExpensesCount(expensesResult.totalCount);
+        setHasMoreExpenses(false);
+        setTotalExpensesCount(expensesResult.data.length);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
