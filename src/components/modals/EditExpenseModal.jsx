@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, DollarSign, Upload, Eye, Trash2 } from 'lucide-react';
+import { X, DollarSign, Upload, Eye, Trash2, Camera } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Avatar from '../ui/Avatar';
@@ -409,29 +409,58 @@ const EditExpenseModal = ({
           
           {/* New Image Upload/Preview */}
           {!imagePreview ? (
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-              <input
-                type="file"
-                id="receipt-upload-edit"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-              />
-              <label
-                htmlFor="receipt-upload-edit"
-                className="cursor-pointer flex flex-col items-center gap-2"
-              >
-                <Upload className="w-8 h-8 text-gray-400" />
-                <span className="text-sm text-gray-600">
-                  {existingImageUrl && !removeExistingImage 
-                    ? 'Click to replace receipt image' 
-                    : 'Click to upload receipt image'
-                  }
-                </span>
-                <span className="text-xs text-gray-400">
-                  PNG, JPG, GIF up to 5MB
-                </span>
-              </label>
+            <div className="space-y-3">
+              {/* Camera Capture (Mobile Only) */}
+              {/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) && (
+                <div className="border-2 border-dashed border-emerald-300 rounded-lg p-4 text-center bg-emerald-50 hover:border-emerald-400 transition-colors">
+                  <input
+                    type="file"
+                    id="camera-capture-edit"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <label
+                    htmlFor="camera-capture-edit"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    <Camera className="w-8 h-8 text-emerald-600" />
+                    <span className="text-sm font-semibold text-emerald-700">
+                      Take Photo
+                    </span>
+                    <span className="text-xs text-emerald-600">
+                      Capture receipt with camera
+                    </span>
+                  </label>
+                </div>
+              )}
+              
+              {/* File Upload */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                <input
+                  type="file"
+                  id="receipt-upload-edit"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="receipt-upload-edit"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <Upload className="w-8 h-8 text-gray-400" />
+                  <span className="text-sm text-gray-600">
+                    {existingImageUrl && !removeExistingImage 
+                      ? 'Upload from Gallery' 
+                      : 'Upload from Gallery'
+                    }
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    PNG, JPG, GIF up to 5MB
+                  </span>
+                </label>
+              </div>
             </div>
           ) : (
             <div className="relative border border-gray-300 rounded-lg overflow-hidden">
