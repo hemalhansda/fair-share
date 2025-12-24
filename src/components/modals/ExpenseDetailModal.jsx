@@ -478,7 +478,7 @@ const ExpenseDetailModal = ({
 
         {/* Receipt Image */}
         {expense.receipt_image_url && !isEditing && (
-          <div className="bg-gray-50 p-4 rounded-lg">
+          <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-3">
               <Image className="w-4 h-4" />
               Receipt
@@ -490,32 +490,32 @@ const ExpenseDetailModal = ({
               <img 
                 src={expense.receipt_image_url} 
                 alt="Receipt" 
-                className="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-white"
+                className="w-full max-h-40 sm:max-h-48 object-contain rounded-lg border border-gray-200 bg-white"
               />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
-                <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 active:bg-black/20 transition-colors rounded-lg flex items-center justify-center">
+                <ZoomIn className="w-6 h-6 sm:w-8 sm:h-8 text-white opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity" />
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">Click to enlarge</p>
+            <p className="text-xs text-gray-500 mt-2 text-center">Tap to enlarge</p>
           </div>
         )}
 
         {/* Full Screen Image Preview Modal */}
         {showImagePreview && expense.receipt_image_url && (
           <div 
-            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-2 sm:p-4"
             onClick={() => setShowImagePreview(false)}
           >
             <button
               onClick={() => setShowImagePreview(false)}
-              className="absolute top-4 right-4 p-2 bg-white/20 hover:bg-white/30 rounded-full text-white transition-colors"
+              className="absolute top-2 right-2 sm:top-4 sm:right-4 p-2 bg-white/20 hover:bg-white/30 active:bg-white/30 rounded-full text-white transition-colors z-10"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             <img 
               src={expense.receipt_image_url} 
               alt="Receipt" 
-              className="max-w-full max-h-full object-contain rounded-lg"
+              className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg"
               onClick={(e) => e.stopPropagation()}
             />
           </div>
