@@ -81,26 +81,26 @@ const PhoneAuth = ({ onPhoneLogin, isLoading }) => {
   };
 
   return (
-    <div className="w-full max-w-md mx-auto">
+    <div className="w-full max-w-md mx-auto px-2 sm:px-0">
       {step === 'phone' ? (
-        <form onSubmit={handleSendOTP} className="space-y-4">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Phone className="w-6 h-6 text-emerald-600" />
+        <form onSubmit={handleSendOTP} className="space-y-3 sm:space-y-4">
+          <div className="text-center mb-4 sm:mb-6">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Sign in with Phone</h3>
-            <p className="text-sm text-gray-600">Enter your phone number to receive a verification code</p>
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-1 sm:mb-2">Sign in with Phone</h3>
+            <p className="text-xs sm:text-sm text-gray-600">Enter your phone number to receive a verification code</p>
           </div>
 
           <div>
             <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
               Phone Number
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <select
                 value={countryCode}
                 onChange={handleCountryCodeChange}
-                className="px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg bg-white"
+                className="w-full sm:w-auto px-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-base bg-white min-w-0 shrink-0"
                 disabled={isLoading}
               >
                 <option value="+1">🇺🇸 +1</option>
@@ -120,7 +120,7 @@ const PhoneAuth = ({ onPhoneLogin, isLoading }) => {
                 value={localNumber}
                 onChange={handlePhoneChange}
                 placeholder={countryCode === '+91' ? '9876543210' : countryCode === '+1' ? '5551234567' : 'Phone number'}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg"
+                className="flex-1 w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-base min-w-0"
                 disabled={isLoading}
                 autoComplete="tel-national"
                 inputMode="numeric"
@@ -153,13 +153,13 @@ const PhoneAuth = ({ onPhoneLogin, isLoading }) => {
           </button>
         </form>
       ) : (
-        <form onSubmit={handleVerifyOTP} className="space-y-4">
-          <div className="text-center mb-6">
-            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-              <Phone className="w-6 h-6 text-emerald-600" />
+        <form onSubmit={handleVerifyOTP} className="space-y-3 sm:space-y-4">
+          <div className="text-center mb-4 sm:mb-6">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600" />
             </div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Enter Verification Code</h3>
-            <p className="text-sm text-gray-600">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-800 mb-1 sm:mb-2">Enter Verification Code</h3>
+            <p className="text-xs sm:text-sm text-gray-600">
               We sent a 6-digit code to<br />
               <span className="font-medium text-gray-800">{countryCode} {localNumber}</span>
             </p>
@@ -175,7 +175,7 @@ const PhoneAuth = ({ onPhoneLogin, isLoading }) => {
               value={otp}
               onChange={handleOtpChange}
               placeholder="000000"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-center text-xl sm:text-2xl tracking-widest font-mono"
               disabled={isLoading}
               autoComplete="one-time-code"
               inputMode="numeric"

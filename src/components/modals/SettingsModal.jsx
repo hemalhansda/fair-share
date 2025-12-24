@@ -119,10 +119,10 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
             </h3>
             
             {/* Profile Info */}
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xl font-bold overflow-hidden">
+            <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4">
+              <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+                <div className="relative flex-shrink-0">
+                  <div className="w-16 h-16 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xl font-bold overflow-hidden">
                     {profileImageUrl ? (
                       <img src={profileImageUrl} alt="Profile" className="w-full h-full object-cover" />
                     ) : (
@@ -141,28 +141,28 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                     </label>
                   )}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 w-full text-center sm:text-left">
                   {isEditingProfile ? (
                     <input
                       type="text"
                       value={editedName}
                       onChange={(e) => setEditedName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
                       placeholder="Your name"
                     />
                   ) : (
                     <>
                       <p className="font-semibold text-gray-800">{currentUser?.name}</p>
-                      <p className="text-sm text-gray-500">{currentUser?.email}</p>
+                      <p className="text-sm text-gray-500 truncate">{currentUser?.email}</p>
                       {currentUser?.phone && (
                         <p className="text-sm text-gray-500">{currentUser.phone}</p>
                       )}
                     </>
                   )}
                 </div>
-                <div>
+                <div className="w-full sm:w-auto flex-shrink-0">
                   {isEditingProfile ? (
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 justify-center sm:justify-end">
                       <button
                         onClick={() => setIsEditingProfile(false)}
                         className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -179,7 +179,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                   ) : (
                     <button
                       onClick={() => setIsEditingProfile(true)}
-                      className="px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-medium"
+                      className="w-full sm:w-auto px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-medium"
                     >
                       Edit Profile
                     </button>
@@ -240,12 +240,12 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
 
             {/* Phone Link Form */}
             {showPhoneLink && (
-              <div className="bg-white border-2 border-blue-200 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-gray-800">Add Phone Number</h4>
+              <div className="bg-white border-2 border-blue-200 rounded-xl p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h4 className="font-semibold text-gray-800 text-sm sm:text-base">Add Phone Number</h4>
                   <button
                     onClick={() => setShowPhoneLink(false)}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 p-1"
                   >
                     <X className="w-5 h-5" />
                   </button>

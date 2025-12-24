@@ -54,12 +54,12 @@ const LandingPage = ({
           </p>
           
           {/* Auth Section */}
-          <div className="flex justify-center items-center mb-16">
+          <div className="flex justify-center items-center mb-16 px-4 sm:px-0">
             {showPhoneAuth ? (
-              <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 relative">
+              <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-4 sm:p-8 relative">
                 <button
                   onClick={() => setShowPhoneAuth(false)}
-                  className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                  className="absolute top-3 right-3 sm:top-4 sm:right-4 text-gray-400 hover:text-gray-600 p-1"
                 >
                   ✕
                 </button>
