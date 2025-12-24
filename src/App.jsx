@@ -46,7 +46,7 @@ import ActivityView from './components/views/ActivityView';
 import AddExpenseModal from './components/modals/AddExpenseModal';
 import EditExpenseModal from './components/modals/EditExpenseModal';
 import AddGroupModal from './components/modals/AddGroupModal';
-import AddFriendModal from './components/modals/AddFriendModal';
+import InviteFriendModal from './components/modals/InviteFriendModal';
 import EditUserModal from './components/modals/EditUserModal';
 import EditGroupModal from './components/modals/EditGroupModal';
 import SettingsModal from './components/modals/SettingsModal';
@@ -1358,7 +1358,7 @@ function AppRouter() {
                 balances={balances}
                 formatMoney={formatMoney}
                 handleSettleUp={handleSettleUp}
-                setShowAddFriend={() => setIsFriendModalOpen(true)}
+                setShowInviteFriend={() => setIsFriendModalOpen(true)}
                 onEditUser={handleShowEditUser}
                 onDeleteUser={handleDeleteUser}
                 userCurrency={userPreferences.currency}
@@ -1427,10 +1427,10 @@ function AppRouter() {
         onAddGroup={handleAddGroup}
       />
 
-      <AddFriendModal
+      <InviteFriendModal
         isOpen={isFriendModalOpen}
         onClose={() => setIsFriendModalOpen(false)}
-        onAddFriend={handleAddFriend}
+        currentUser={currentUser}
       />
 
       <EditUserModal

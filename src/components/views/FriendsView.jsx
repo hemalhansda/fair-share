@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserPlus, Check, Edit2, Trash2, TrendingUp, TrendingDown, Users, CheckCircle2 } from 'lucide-react';
+import { Share2, Check, Edit2, Trash2, TrendingUp, TrendingDown, Users, CheckCircle2 } from 'lucide-react';
 import Avatar from '../ui/Avatar';
 import Button from '../ui/Button';
 import { UserSkeleton } from '../ui/SkeletonLoader';
@@ -11,7 +11,7 @@ const FriendsView = ({
   balances, 
   formatMoney, 
   handleSettleUp, 
-  setShowAddFriend,
+  setShowInviteFriend,
   onEditUser,
   onDeleteUser,
   userCurrency = 'USD',
@@ -36,11 +36,11 @@ const FriendsView = ({
             </p>
           </div>
           <button
-            onClick={setShowAddFriend}
+            onClick={setShowInviteFriend}
             className="flex items-center gap-2 bg-white text-emerald-600 hover:bg-emerald-50 px-4 sm:px-6 py-2 sm:py-3 rounded-lg sm:rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base w-full sm:w-auto justify-center"
           >
-            <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span>Add Friend</span>
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span>Invite Friends</span>
           </button>
         </div>
         
@@ -74,18 +74,18 @@ const FriendsView = ({
         /* Empty State */
         <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-8 sm:p-12 text-center">
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <UserPlus className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" />
+            <Share2 className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" />
           </div>
           <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">No Friends Yet</h3>
           <p className="text-sm sm:text-base text-gray-500 mb-4 sm:mb-6 max-w-md mx-auto">
-            Add friends to start splitting expenses and tracking balances together!
+            Invite friends to start splitting expenses and tracking balances together!
           </p>
           <Button 
-            onClick={setShowAddFriend}
+            onClick={setShowInviteFriend}
             className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 !text-sm sm:!text-base"
           >
-            <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />
-            Add Your First Friend
+            <Share2 className="w-4 h-4 sm:w-5 sm:h-5" />
+            Invite Your First Friend
           </Button>
         </div>
       ) : (
