@@ -83,19 +83,19 @@ const GroupsView = ({
           return (
             <div 
               key={group.id} 
-              className="bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group cursor-pointer"
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden group cursor-pointer"
               onClick={() => handleGroupClick(group)}
             >
               {/* Card Header with Gradient */}
-              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 p-4 sm:p-5 border-b border-gray-100">
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
                       <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-medium text-xs sm:text-sm text-gray-800 truncate">{group.name}</h3>
-                      <p className="text-xs sm:text-sm text-gray-500 flex items-center gap-1">
+                      <h3 className="font-medium text-xs sm:text-sm text-gray-800 dark:text-gray-100 truncate">{group.name}</h3>
+                      <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1">
                         <Users className="w-3 h-3" />
                         {group.members?.length || 0} members
                       </p>
@@ -109,7 +109,7 @@ const GroupsView = ({
                         e.stopPropagation();
                         onEditGroup(group);
                       }}
-                      className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
                       title="Edit group"
                     >
                       <Edit2 size={14} />
@@ -119,7 +119,7 @@ const GroupsView = ({
                         e.stopPropagation();
                         onDeleteGroup(group);
                       }}
-                      className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"
                       title="Delete group"
                     >
                       <Trash2 size={14} />
@@ -137,12 +137,12 @@ const GroupsView = ({
                           key={user.id} 
                           user={user} 
                           size="sm" 
-                          className="border-2 border-white ring-1 ring-gray-200 hover:z-10 transition-transform hover:scale-110" 
+                          className="border-2 border-white dark:border-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 hover:z-10 transition-transform hover:scale-110" 
                         />
                       ) : null;
                     })}
                     {group.members?.length > 5 && (
-                      <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 border-2 border-white ring-1 ring-gray-200">
+                      <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300 border-2 border-white dark:border-gray-800 ring-1 ring-gray-200 dark:ring-gray-700">
                         +{group.members.length - 5}
                       </div>
                     )}
@@ -154,16 +154,16 @@ const GroupsView = ({
               <div className="p-4 sm:p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`p-2 rounded-lg ${isPositive ? 'bg-emerald-100' : 'bg-rose-100'}`}>
+                    <div className={`p-2 rounded-lg ${isPositive ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-rose-100 dark:bg-rose-900/30'}`}>
                       {isPositive ? (
-                        <TrendingUp className="w-4 h-4 text-emerald-600" />
+                        <TrendingUp className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                       ) : (
-                        <TrendingDown className="w-4 h-4 text-rose-600" />
+                        <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
                       )}
                     </div>
                     <div>
-                      <div className="text-xs text-gray-500">Your balance</div>
-                      <div className={`text-lg sm:text-xl font-bold ${isPositive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">Your balance</div>
+                      <div className={`text-lg sm:text-xl font-bold ${isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                         {formatCurrency(Math.abs(balance), group.default_currency || userCurrency)}
                       </div>
                     </div>
@@ -171,22 +171,22 @@ const GroupsView = ({
                   
                   {/* Currency Badge */}
                   {group.default_currency && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
-                      <DollarSign className="w-3 h-3 text-gray-600" />
-                      <span className="text-xs font-medium text-gray-600">{group.default_currency}</span>
+                    <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
+                      <DollarSign className="w-3 h-3 text-gray-600 dark:text-gray-300" />
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{group.default_currency}</span>
                     </div>
                   )}
                 </div>
                 
                 {/* Status Text */}
-                <div className="mt-3 pt-3 border-t border-gray-100">
-                  <p className="text-xs text-gray-500 text-center">
+                <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                     {Math.abs(balance) < 0.01 ? (
-                      <span className="text-emerald-600 font-medium">✓ All settled up!</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">✓ All settled up!</span>
                     ) : isPositive ? (
-                      <span>You're owed <span className="font-semibold text-emerald-600">{formatCurrency(balance, group.default_currency || userCurrency)}</span></span>
+                      <span>You're owed <span className="font-semibold text-emerald-600 dark:text-emerald-400">{formatCurrency(balance, group.default_currency || userCurrency)}</span></span>
                     ) : (
-                      <span>You owe <span className="font-semibold text-rose-600">{formatCurrency(Math.abs(balance), group.default_currency || userCurrency)}</span></span>
+                      <span>You owe <span className="font-semibold text-rose-600 dark:text-rose-400">{formatCurrency(Math.abs(balance), group.default_currency || userCurrency)}</span></span>
                     )}
                   </p>
                 </div>
@@ -198,12 +198,12 @@ const GroupsView = ({
     </div>
       
     {!isDataLoading && groups.length === 0 && (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 text-center py-16 px-6">
-        <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Users className="w-10 h-10 text-emerald-600" />
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 text-center py-16 px-6">
+        <div className="w-20 h-20 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+          <Users className="w-10 h-10 text-emerald-600 dark:text-emerald-400" />
         </div>
-        <h3 className="text-xl font-bold text-gray-800 mb-2">No groups yet</h3>
-        <p className="text-gray-500 mb-6 max-w-md mx-auto">
+        <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">No groups yet</h3>
+        <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
           Create your first group to start splitting expenses with friends, family, or roommates
         </p>
         <Button 

@@ -63,7 +63,7 @@ const FriendsView = ({
 
       {/* Loading State */}
       {isDataLoading ? (
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="p-3 sm:p-4">
               <UserSkeleton />
@@ -72,12 +72,12 @@ const FriendsView = ({
         </div>
       ) : friends.length === 0 ? (
         /* Empty State */
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 p-8 sm:p-12 text-center">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Share2 className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600" />
+        <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-8 sm:p-12 text-center">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Share2 className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2">No Friends Yet</h3>
-          <p className="text-sm sm:text-base text-gray-500 mb-4 sm:mb-6 max-w-md mx-auto">
+          <h3 className="text-lg sm:text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">No Friends Yet</h3>
+          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mb-4 sm:mb-6 max-w-md mx-auto">
             Invite friends to start splitting expenses and tracking balances together!
           </p>
           <Button 
@@ -93,14 +93,14 @@ const FriendsView = ({
         <div className="space-y-3 sm:space-y-4">
           {/* Friends with Balances */}
           {friendsWithBalance.length > 0 && (
-            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 sm:px-5 py-2 sm:py-3 border-b border-gray-200">
-                <h3 className="text-xs sm:text-sm font-bold text-gray-700 flex items-center gap-2">
-                  <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 px-4 sm:px-5 py-2 sm:py-3 border-b border-gray-200 dark:border-gray-600">
+                <h3 className="text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-200 flex items-center gap-2">
+                  <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600 dark:text-emerald-400" />
                   Unsettled Balances ({friendsWithBalance.length})
                 </h3>
               </div>
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {friendsWithBalance.map(user => {
                   const balance = balances.details[user.id] || 0;
                   const isOwed = balance > 0;
@@ -108,14 +108,14 @@ const FriendsView = ({
                   return (
                     <div 
                       key={user.id} 
-                      className="p-3 sm:p-4 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-teal-50/50 transition-all group"
+                      className="p-3 sm:p-4 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-teal-50/50 dark:hover:from-emerald-900/20 dark:hover:to-teal-900/20 transition-all group"
                     >
                       <div className="flex items-center justify-between gap-2 sm:gap-4">
                         <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                           <Avatar user={user} size="md" className="flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm sm:text-base text-gray-800 truncate">{user.name}</div>
-                            <div className="text-[10px] sm:text-xs text-gray-500 truncate hidden sm:block">{user.email}</div>
+                            <div className="font-semibold text-sm sm:text-base text-gray-800 dark:text-gray-100 truncate">{user.name}</div>
+                            <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate hidden sm:block">{user.email}</div>
                           </div>
                         </div>
                         
@@ -123,7 +123,7 @@ const FriendsView = ({
                           {/* Balance Info */}
                           <div className="text-right">
                             <div className={`font-bold text-xs sm:text-sm flex items-center gap-1 ${
-                              isOwed ? 'text-emerald-600' : 'text-rose-600'
+                              isOwed ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                             }`}>
                               {isOwed ? (
                                 <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -133,13 +133,13 @@ const FriendsView = ({
                               <span className="hidden sm:inline">{isOwed ? 'owes you' : 'you owe'}</span>
                             </div>
                             <div className={`font-bold text-sm sm:text-base ${
-                              isOwed ? 'text-emerald-600' : 'text-rose-600'
+                              isOwed ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                             }`}>
                               {formatCurrency(Math.abs(balance), userCurrency)}
                             </div>
                             <button 
                               onClick={() => handleSettleUp(user.id)}
-                              className="text-[10px] sm:text-xs text-emerald-600 hover:text-emerald-700 font-semibold hover:underline mt-0.5 sm:mt-1"
+                              className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-semibold hover:underline mt-0.5 sm:mt-1"
                             >
                               Settle Up
                             </button>
@@ -149,14 +149,14 @@ const FriendsView = ({
                           <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={() => onEditUser(user)}
-                              className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
                               title="Edit friend"
                             >
                               <Edit2 size={16} />
                             </button>
                             <button
                               onClick={() => onDeleteUser(user)}
-                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                               title="Delete friend"
                             >
                               <Trash2 size={16} />
@@ -167,14 +167,14 @@ const FriendsView = ({
                           <div className="flex sm:hidden items-center gap-1">
                             <button
                               onClick={() => onEditUser(user)}
-                              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
                               title="Edit"
                             >
                               <Edit2 size={14} />
                             </button>
                             <button
                               onClick={() => onDeleteUser(user)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                               title="Delete"
                             >
                               <Trash2 size={14} />
@@ -191,30 +191,30 @@ const FriendsView = ({
 
           {/* Settled Friends */}
           {settledFriends.length > 0 && (
-            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-4 sm:px-5 py-2 sm:py-3 border-b border-emerald-100">
-                <h3 className="text-xs sm:text-sm font-bold text-emerald-700 flex items-center gap-2">
+            <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 px-4 sm:px-5 py-2 sm:py-3 border-b border-emerald-100 dark:border-emerald-800">
+                <h3 className="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2">
                   <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4" />
                   All Settled ({settledFriends.length})
                 </h3>
               </div>
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {settledFriends.map(user => (
                   <div 
                     key={user.id} 
-                    className="p-3 sm:p-4 hover:bg-gray-50 transition-colors group"
+                    className="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group"
                   >
                     <div className="flex items-center justify-between gap-2 sm:gap-4">
                       <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                         <Avatar user={user} size="md" className="flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-sm sm:text-base text-gray-800 truncate">{user.name}</div>
-                          <div className="text-[10px] sm:text-xs text-gray-500 truncate hidden sm:block">{user.email}</div>
+                          <div className="font-semibold text-sm sm:text-base text-gray-800 dark:text-gray-100 truncate">{user.name}</div>
+                          <div className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate hidden sm:block">{user.email}</div>
                         </div>
                       </div>
                       
                       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                        <div className="flex items-center gap-1 text-emerald-600 bg-emerald-50 px-2 sm:px-3 py-1 rounded-full">
+                        <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 sm:px-3 py-1 rounded-full">
                           <Check size={12} className="sm:w-4 sm:h-4" />
                           <span className="text-[10px] sm:text-xs font-semibold">Settled</span>
                         </div>
@@ -223,14 +223,14 @@ const FriendsView = ({
                         <div className="hidden sm:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => onEditUser(user)}
-                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
                             title="Edit friend"
                           >
                             <Edit2 size={16} />
                           </button>
                           <button
                             onClick={() => onDeleteUser(user)}
-                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                             title="Delete friend"
                           >
                             <Trash2 size={16} />
@@ -241,14 +241,14 @@ const FriendsView = ({
                         <div className="flex sm:hidden items-center gap-1">
                           <button
                             onClick={() => onEditUser(user)}
-                            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors"
                             title="Edit"
                           >
                             <Edit2 size={14} />
                           </button>
                           <button
                             onClick={() => onDeleteUser(user)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                             title="Delete"
                           >
                             <Trash2 size={14} />

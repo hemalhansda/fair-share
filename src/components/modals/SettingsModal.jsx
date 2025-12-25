@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { X, Settings, Globe, LogOut, Info, Code, Heart, ExternalLink, Mail, Github, Linkedin, Phone, User, Camera, Link as LinkIcon } from 'lucide-react';
+import { X, Settings, Globe, LogOut, Info, Code, Heart, ExternalLink, Mail, Github, Linkedin, Phone, User, Camera, Link as LinkIcon, Moon, Sun } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { getCurrencyOptions } from '../../services/currency';
 import PhoneAuth from '../auth/PhoneAuth';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, handleLogout, currentUser, onUpdateUser, handlePhoneLogin, isPhoneLoading, handleGoogleLogin, isGoogleLoading }) => {
+  const { isDark, toggleTheme } = useTheme();
   const [selectedCurrency, setSelectedCurrency] = useState('USD');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('settings');
@@ -82,13 +84,13 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
     <Modal isOpen={isOpen} onClose={handleClose} title="">
       {/* Custom Header with Tabs */}
       <div className="mb-6">
-        <div className="flex gap-2 border-b border-gray-200">
+        <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-2 px-4 py-3 font-semibold text-sm transition-all ${
               activeTab === 'settings'
-                ? 'text-emerald-600 border-b-2 border-emerald-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
             <Settings className="w-4 h-4" />
@@ -98,8 +100,8 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
             onClick={() => setActiveTab('about')}
             className={`flex items-center gap-2 px-4 py-3 font-semibold text-sm transition-all ${
               activeTab === 'about'
-                ? 'text-emerald-600 border-b-2 border-emerald-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'text-emerald-600 dark:text-emerald-400 border-b-2 border-emerald-600 dark:border-emerald-400'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
             }`}
           >
             <Info className="w-4 h-4" />
@@ -112,14 +114,14 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
       {activeTab === 'settings' && (
         <div className="space-y-6">
           {/* Account Management Section */}
-          <div className="pb-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <User className="w-5 h-5 text-emerald-600" />
+          <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
+              <User className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
               Account
             </h3>
             
             {/* Profile Info */}
-            <div className="bg-gray-50 rounded-xl p-3 sm:p-4 mb-4">
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-3 sm:p-4 mb-4">
               <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
                 <div className="relative flex-shrink-0">
                   <div className="w-16 h-16 sm:w-16 sm:h-16 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white text-xl font-bold overflow-hidden">
@@ -130,8 +132,8 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                     )}
                   </div>
                   {isEditingProfile && (
-                    <label className="absolute bottom-0 right-0 p-1.5 bg-white rounded-full shadow-lg cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200">
-                      <Camera className="w-3 h-3 text-gray-600" />
+                    <label className="absolute bottom-0 right-0 p-1.5 bg-white dark:bg-gray-600 rounded-full shadow-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors border border-gray-200 dark:border-gray-500">
+                      <Camera className="w-3 h-3 text-gray-600 dark:text-gray-200" />
                       <input
                         type="file"
                         accept="image/*"
@@ -147,15 +149,15 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                       type="text"
                       value={editedName}
                       onChange={(e) => setEditedName(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm sm:text-base"
                       placeholder="Your name"
                     />
                   ) : (
                     <>
-                      <p className="font-semibold text-gray-800">{currentUser?.name}</p>
-                      <p className="text-sm text-gray-500 truncate">{currentUser?.email}</p>
+                      <p className="font-semibold text-gray-800 dark:text-gray-100">{currentUser?.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{currentUser?.email}</p>
                       {currentUser?.phone && (
-                        <p className="text-sm text-gray-500">{currentUser.phone}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{currentUser.phone}</p>
                       )}
                     </>
                   )}
@@ -165,7 +167,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                     <div className="flex gap-2 justify-center sm:justify-end">
                       <button
                         onClick={() => setIsEditingProfile(false)}
-                        className="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
                       >
                         Cancel
                       </button>
@@ -179,7 +181,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                   ) : (
                     <button
                       onClick={() => setIsEditingProfile(true)}
-                      className="w-full sm:w-auto px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors font-medium"
+                      className="w-full sm:w-auto px-3 py-1.5 text-sm text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-lg transition-colors font-medium"
                     >
                       Edit Profile
                     </button>
@@ -264,14 +266,47 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
             )}
           </div>
 
+          {/* Dark Mode Toggle */}
+          <div className="pb-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {isDark ? (
+                  <Moon className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                ) : (
+                  <Sun className="w-5 h-5 text-amber-500" />
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
+                    Dark Mode
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {isDark ? 'Dark theme is enabled' : 'Light theme is enabled'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={toggleTheme}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 ${
+                  isDark ? 'bg-emerald-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    isDark ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
           {/* Currency Settings */}
         <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             <Globe className="w-4 h-4 inline mr-2" />
             Preferred Currency
           </label>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             All expenses will be converted to your preferred currency for display. 
             The original currency will still be shown for reference.
           </p>
@@ -279,7 +314,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
           <select
             value={selectedCurrency}
             onChange={(e) => setSelectedCurrency(e.target.value)}
-            className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-800 dark:text-gray-100"
             disabled={isSubmitting}
           >
             {getCurrencyOptions().map(option => (
@@ -289,8 +324,8 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
             ))}
           </select>
           
-          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-700">
+          <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
               <strong>Note:</strong> Currency conversion uses live exchange rates. 
               Rates are updated hourly and may vary slightly from bank rates.
             </p>
@@ -323,17 +358,17 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
       {activeTab === 'about' && (
         <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
           {/* App Info */}
-          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-100">
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 rounded-xl p-6 border border-emerald-100 dark:border-emerald-800">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
                 fS
               </div>
               <div>
-                <h3 className="text-xl font-bold text-gray-800">fyrShare</h3>
-                <p className="text-sm text-emerald-600 font-semibold">Split expenses, share fairly</p>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">fyrShare</h3>
+                <p className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold">Split expenses, share fairly</p>
               </div>
             </div>
-            <p className="text-sm text-gray-600 leading-relaxed">
+            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
               fyrShare makes splitting expenses with friends and groups effortless. Track who paid what, 
               split bills fairly, and settle up with ease. Support for multiple currencies with real-time 
               conversion ensures accurate expense tracking wherever you are.
@@ -342,8 +377,8 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
 
           {/* Features */}
           <div className="space-y-3">
-            <h4 className="font-bold text-gray-800 flex items-center gap-2">
-              <Code className="w-4 h-4 text-emerald-600" />
+            <h4 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <Code className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Key Features
             </h4>
             <div className="grid gap-2">
@@ -355,7 +390,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                 '📱 Responsive design for all devices',
                 '🔒 Secure Google OAuth authentication'
               ].map((feature, index) => (
-                <div key={index} className="flex items-start gap-2 text-sm text-gray-600 bg-white p-3 rounded-lg border border-gray-100">
+                <div key={index} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
                   <span>{feature}</span>
                 </div>
               ))}
@@ -363,18 +398,18 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
           </div>
 
           {/* Developer Info */}
-          <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 border border-gray-200">
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
             <div className="flex items-center gap-2 mb-4">
               <Heart className="w-5 h-5 text-red-500" />
-              <h4 className="font-bold text-gray-800">Developed By</h4>
+              <h4 className="font-bold text-gray-800 dark:text-gray-100">Developed By</h4>
             </div>
             <div className="space-y-4">
               <div>
-                <h5 className="font-bold text-lg text-gray-800">Hemaal Hansda</h5>
-                <p className="text-sm text-gray-600 mt-1">Full Stack Developer & Designer</p>
+                <h5 className="font-bold text-lg text-gray-800 dark:text-gray-100">Hemaal Hansda</h5>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Full Stack Developer & Designer</p>
               </div>
               
-              <p className="text-sm text-gray-600 leading-relaxed">
+              <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
                 A passionate developer crafting intuitive and beautiful web applications. 
                 Specializing in modern web technologies, user experience design, and building 
                 products that solve real-world problems.
@@ -386,7 +421,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                   href="https://www.hemaalhansda.com"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-emerald-50 text-gray-700 hover:text-emerald-600 rounded-lg border border-gray-200 hover:border-emerald-200 transition-all text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg border border-gray-200 dark:border-gray-500 hover:border-emerald-200 dark:hover:border-emerald-700 transition-all text-sm font-medium"
                 >
                   <ExternalLink className="w-4 h-4" />
                   Portfolio
@@ -395,7 +430,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                   href="https://github.com/hemalhansda"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-800 text-gray-700 hover:text-white rounded-lg border border-gray-200 hover:border-gray-800 transition-all text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-600 hover:bg-gray-800 text-gray-700 dark:text-gray-200 hover:text-white rounded-lg border border-gray-200 dark:border-gray-500 hover:border-gray-800 transition-all text-sm font-medium"
                 >
                   <Github className="w-4 h-4" />
                   GitHub
@@ -404,7 +439,7 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
                   href="https://www.linkedin.com/in/hemaalhansda"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-blue-600 text-gray-700 hover:text-white rounded-lg border border-gray-200 hover:border-blue-600 transition-all text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-600 hover:bg-blue-600 text-gray-700 dark:text-gray-200 hover:text-white rounded-lg border border-gray-200 dark:border-gray-500 hover:border-blue-600 transition-all text-sm font-medium"
                 >
                   <Linkedin className="w-4 h-4" />
                   LinkedIn
@@ -414,16 +449,16 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
           </div>
 
           {/* Tech Stack */}
-          <div className="bg-white rounded-xl p-6 border border-gray-200">
-            <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
-              <Code className="w-4 h-4 text-emerald-600" />
+          <div className="bg-white dark:bg-gray-700 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+            <h4 className="font-bold text-gray-800 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <Code className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Built With
             </h4>
             <div className="flex flex-wrap gap-2">
               {['React', 'Vite', 'Tailwind CSS', 'Supabase', 'PostgreSQL'].map((tech) => (
                 <span
                   key={tech}
-                  className="px-3 py-1 bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 text-xs font-semibold rounded-full border border-emerald-200"
+                  className="px-3 py-1 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold rounded-full border border-emerald-200 dark:border-emerald-700"
                 >
                   {tech}
                 </span>
@@ -432,11 +467,11 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
           </div>
 
           {/* Copyright */}
-          <div className="text-center pt-4 border-t border-gray-200">
-            <p className="text-xs text-gray-500">
+          <div className="text-center pt-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               © {new Date().getFullYear()} fyrShare. All rights reserved.
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Made with <Heart className="w-3 h-3 inline text-red-500" /> by Hemaal Hansda
             </p>
           </div>
@@ -445,13 +480,13 @@ const SettingsModal = ({ isOpen, onClose, userPreferences, onUpdatePreferences, 
 
       {/* Logout Button - Show on Settings tab only */}
       {activeTab === 'settings' && handleLogout && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => {
               handleLogout();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg font-semibold transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/50 rounded-lg font-semibold transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Logout

@@ -3,6 +3,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  /* Dark mode base styles */
+  html.dark {
+    @apply bg-gray-900 text-gray-100;
+  }
+  
+  body {
+    @apply transition-colors duration-200;
+  }
+}
+
 /* Prevent iOS bounce/overscroll effect */
 html, body {
   overscroll-behavior: none;

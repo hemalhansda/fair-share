@@ -13,7 +13,7 @@ const AppLayout = ({
   setIsSettingsModalOpen 
 }) => {
   return (
-    <div className="h-screen w-full bg-gray-50 flex overflow-hidden font-sans text-gray-900">
+    <div className="h-screen w-full bg-gray-50 dark:bg-gray-900 flex overflow-hidden font-sans text-gray-900 dark:text-gray-100">
       {/* Sidebar (Desktop) */}
       <Sidebar 
         currentUser={currentUser}
