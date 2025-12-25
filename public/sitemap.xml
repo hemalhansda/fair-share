@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://fyrshare.space/</loc>
     <lastmod>2025-12-25</lastmod>
-    <changefreq>weekly</changefreq>
+    <changefreq>daily</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://fyrshare.space/og-image.png</image:loc>
+      <image:title>fyrShare - Best Free Splitwise Alternative</image:title>
+      <image:caption>Split bills and track expenses with friends using fyrShare</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://fyrshare.space/welcome</loc>
     <lastmod>2025-12-25</lastmod>
-    <changefreq>monthly</changefreq>
+    <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
 </urlset>
