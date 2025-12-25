@@ -1,0 +1,15 @@
+# robots.txt for fyrShare
+# https://fyrshare.space
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://fyrshare.space/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Disallow admin/private routes if any
+Disallow: /api/
+Disallow: /*.json$
