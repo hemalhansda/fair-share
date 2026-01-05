@@ -67,6 +67,36 @@ export async function createOrUpdateUser(googleUser) {
       autoJoinedGroups: autoJoinedGroups
     }
 
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// Get user by google_id (for refreshing session from localStorage)
+export async function getUserByGoogleId(googleId) {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('google_id', googleId)
+      .maybeSingle()
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error) {
+    return { success: false, error: error.message }
+  }
+}
+
+// Get user by email (for refreshing session)
+export async function getUserByEmail(email) {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle()
+
     if (error) throw error
     return { success: true, data }
   } catch (error) {

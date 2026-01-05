@@ -57,6 +57,8 @@ import {
   createOrUpdateUser,
   getAllUsers,
   getUserFriends,
+  getUserByGoogleId,
+  getUserByEmail,
   addFriend,
   updateUser,
   deleteUser,
@@ -126,6 +128,13 @@ const ExpenseModalWrapper = ({
       selectedGroup={currentGroup}
     />
   );
+};
+
+// Helper function to check if an ID is a valid UUID format
+const isValidUUID = (id) => {
+  if (!id || typeof id !== 'string') return false;
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
 };
 
 // --- Main Application Components ---
@@ -219,17 +228,60 @@ function AppRouter() {
 
   // Check for existing authentication on app load
   useEffect(() => {
-    const checkAuthState = () => {
+    const checkAuthState = async () => {
       try {
         const savedAuthState = localStorage.getItem('fyrshare_auth_state');
         const savedUser = localStorage.getItem('fyrshare_user');
         
         if (savedAuthState === 'true' && savedUser) {
           const userData = JSON.parse(savedUser);
+          
+          // Check if stored ID is a valid UUID - if not, we need to refresh from database
+          const needsRefresh = !isValidUUID(userData.id);
+          
+          // Set initial state with saved data (will be updated if refresh succeeds)
           setIsAuthenticated(true);
           setShowLanding(false);
           setGoogleUser(userData);
           setCurrentUser(userData);
+          
+          // Refresh user data from database to ensure we have correct UUID
+          // Always refresh if ID is not a valid UUID, otherwise try to refresh anyway
+          if (!isDemoMode) {
+            let freshUser = null;
+            
+            // If ID is not a UUID (old Google ID format), we must refresh
+            if (userData.google_id) {
+              const result = await getUserByGoogleId(userData.google_id);
+              if (result.success && result.data) {
+                freshUser = result.data;
+              }
+            }
+            
+            // If no google_id or not found, try by email
+            if (!freshUser && userData.email) {
+              const result = await getUserByEmail(userData.email);
+              if (result.success && result.data) {
+                freshUser = result.data;
+              }
+            }
+            
+            // Update with fresh data if found
+            if (freshUser) {
+              setGoogleUser(freshUser);
+              setCurrentUser(freshUser);
+              localStorage.setItem('fyrshare_user', JSON.stringify(freshUser));
+            } else if (needsRefresh) {
+              // If we needed refresh but couldn't get fresh data, clear auth
+              console.warn('Could not refresh user data from database, clearing auth state');
+              localStorage.removeItem('fyrshare_auth_state');
+              localStorage.removeItem('fyrshare_user');
+              setIsAuthenticated(false);
+              setShowLanding(true);
+              setGoogleUser(null);
+              setCurrentUser(null);
+            }
+          }
         }
       } catch (error) {
         // Clear invalid data
