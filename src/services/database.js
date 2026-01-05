@@ -806,8 +806,14 @@ export async function createExpense(expenseData) {
   try {
     // Handle both old and new data formats
     const paidById = expenseData.paid_by || expenseData.paidBy;
-    const splitWith = expenseData.split_with || expenseData.splitBetween || [];
+    const splitWith = (expenseData.split_with || expenseData.splitBetween || [])
+      .filter(id => id !== undefined && id !== null && id !== 'undefined' && id !== ''); // Filter out invalid IDs
     const groupId = expenseData.group_id || expenseData.groupId;
+    
+    // Validate we have valid split members
+    if (splitWith.length === 0) {
+      throw new Error('No valid members to split expense with');
+    }
     
     // Convert payer ID to UUID if needed
     let payerUuid = paidById
@@ -895,6 +901,12 @@ export async function createExpense(expenseData) {
     if (expenseData.split_method === 'custom' && expenseData.custom_splits) {
       // Use custom split amounts
       for (const [userId, amount] of Object.entries(expenseData.custom_splits)) {
+        // Skip invalid user IDs
+        if (!userId || userId === 'undefined' || userId === 'null') {
+          console.warn('Skipping invalid user ID in custom splits:', userId);
+          continue;
+        }
+        
         let userUuid = userId
         
         // Check if this looks like a Google ID (not a UUID)
@@ -927,6 +939,12 @@ export async function createExpense(expenseData) {
       const splitAmount = expenseData.amount / splitWith.length
       
       for (const userId of splitWith) {
+        // Skip invalid user IDs (already filtered above, but double-check)
+        if (!userId || userId === 'undefined' || userId === 'null') {
+          console.warn('Skipping invalid user ID in equal splits:', userId);
+          continue;
+        }
+        
         let userUuid = userId
         
         // Check if this looks like a Google ID (not a UUID)
@@ -956,6 +974,11 @@ export async function createExpense(expenseData) {
       }
     }
 
+    // Validate we have at least one valid split
+    if (splitInserts.length === 0) {
+      throw new Error('No valid expense splits could be created');
+    }
+
     const { error: splitsError } = await supabase
       .from('expense_splits')
       .insert(splitInserts)
@@ -977,8 +1000,14 @@ export async function updateExpense(expenseId, expenseData) {
   try {
     // Handle both old and new data formats
     const paidById = expenseData.paid_by || expenseData.paidBy;
-    const splitWith = expenseData.split_with || expenseData.splitBetween || [];
+    const splitWith = (expenseData.split_with || expenseData.splitBetween || [])
+      .filter(id => id !== undefined && id !== null && id !== 'undefined' && id !== ''); // Filter out invalid IDs
     const groupId = expenseData.group_id || expenseData.groupId;
+    
+    // Validate we have valid split members
+    if (splitWith.length === 0) {
+      throw new Error('No valid members to split expense with');
+    }
     
     // Convert payer ID to UUID if needed
     let payerUuid = paidById
@@ -1040,6 +1069,12 @@ export async function updateExpense(expenseId, expenseData) {
     if (expenseData.split_method === 'custom' && expenseData.custom_splits) {
       // Custom splits
       for (const [userId, amount] of Object.entries(expenseData.custom_splits)) {
+        // Skip invalid user IDs
+        if (!userId || userId === 'undefined' || userId === 'null') {
+          console.warn('Skipping invalid user ID in custom splits:', userId);
+          continue;
+        }
+        
         let userUuid = userId
         
         // Check if this looks like a Google ID (not a UUID)
@@ -1072,6 +1107,12 @@ export async function updateExpense(expenseId, expenseData) {
       const splitAmount = expenseData.amount / splitWith.length
       
       for (const userId of splitWith) {
+        // Skip invalid user IDs
+        if (!userId || userId === 'undefined' || userId === 'null') {
+          console.warn('Skipping invalid user ID in equal splits:', userId);
+          continue;
+        }
+        
         let userUuid = userId
         
         // Check if this looks like a Google ID (not a UUID)
@@ -1099,6 +1140,11 @@ export async function updateExpense(expenseId, expenseData) {
           amount: splitAmount
         })
       }
+    }
+
+    // Validate we have at least one valid split
+    if (splitInserts.length === 0) {
+      throw new Error('No valid expense splits could be created');
     }
 
     const { error: splitsError } = await supabase
